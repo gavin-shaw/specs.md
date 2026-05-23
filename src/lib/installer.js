@@ -201,6 +201,44 @@ async function install() {
   }
 }
 
+const GITIGNORE_PATTERNS = [
+  '.claude/agents/specsmd-*',
+  '.claude/commands/specsmd-*',
+  '.codex/skills/specsmd-*',
+  '.cursor/commands/specsmd-*',
+  '.specsmd'
+];
+
+const GITIGNORE_HEADER = '# specsmd';
+
+async function patchRootGitignore(cwd = process.cwd()) {
+  const gitignorePath = path.join(cwd, '.gitignore');
+
+  if (!(await fs.pathExists(gitignorePath))) {
+    const contents = [GITIGNORE_HEADER, ...GITIGNORE_PATTERNS].join('\n') + '\n';
+    await fs.writeFile(gitignorePath, contents, 'utf8');
+    return { created: true, added: [...GITIGNORE_PATTERNS] };
+  }
+
+  const existing = await fs.readFile(gitignorePath, 'utf8');
+  const existingLines = new Set(
+    existing.split('\n').map(line => line.trim()).filter(Boolean)
+  );
+  const missing = GITIGNORE_PATTERNS.filter(p => !existingLines.has(p));
+
+  if (missing.length === 0) {
+    return { created: false, added: [] };
+  }
+
+  const needsLeadingBlank = existing.length > 0 && !existing.endsWith('\n\n');
+  const separator = existing.endsWith('\n') ? '' : '\n';
+  const blankLine = needsLeadingBlank ? '\n' : '';
+  const appended = separator + blankLine + [GITIGNORE_HEADER, ...missing].join('\n') + '\n';
+
+  await fs.writeFile(gitignorePath, existing + appended, 'utf8');
+  return { created: false, added: missing };
+}
+
 async function installFlow(flowKey, toolKeys) {
   const flowPath = path.join(__dirname, '..', 'flows', FLOWS[flowKey].path);
 
@@ -287,6 +325,9 @@ async function installFlow(flowKey, toolKeys) {
   );
 
   CLIUtils.displayStatus('', 'Created installation manifest', 'success');
+
+  await patchRootGitignore();
+  CLIUtils.displayStatus('', 'Updated .gitignore', 'success');
 
   // Count files created for analytics
   const filesCreated = await countFiles(specsmdDir);
@@ -401,6 +442,7 @@ async function uninstall() {
 
 module.exports = {
   install,
-  uninstall
+  uninstall,
+  patchRootGitignore
 };
 
