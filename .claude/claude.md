@@ -190,9 +190,25 @@ This project uses **semantic-release** for automatic versioning. Commit messages
 
 ### Required Commit Format
 
+Subject only:
+
 ```
 <type>: <description>
 ```
+
+With a body (for non-trivial changes that need explanation):
+
+```
+<type>: <description>
+
+<body explaining the why, wrapped at ~72 cols>
+<more body if needed>
+```
+
+**A blank line between the subject and the body is REQUIRED** (per the
+Conventional Commits spec). Without it, `git log --oneline` and many other
+tools will fold the body into the subject. Leave a blank line between
+body paragraphs too if you have more than one.
 
 ### Commit Types and Version Impact
 
@@ -230,6 +246,15 @@ test: add unit tests for validator
 - **Use present tense** ("add feature" not "added feature")
 - **Be concise but descriptive** in the description
 - **Major versions** require manual `package.json` update
+- **Bodies are optional and should be rare.** Default to subject-only.
+  Only add a body when there is context the diff cannot convey — typically
+  the *why*, a non-obvious side-effect, or a caveat a reviewer would miss.
+  If you do add one, write the minimum that delivers that value:
+  - No restating what the diff already shows
+  - No narrating the change ("I refactored X, then added Y")
+  - No filler ("This commit...", "In order to...")
+  - One short paragraph is usually enough; multiple paragraphs need a real reason
+  If you can't articulate the extra value the body provides, delete it.
 
 See `/dev_release_guide.md` for full workflow documentation.
 
