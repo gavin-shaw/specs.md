@@ -1,8 +1,13 @@
 {
-  "name": "specsmd",
-  "private": true,
+  "name": "specsmd-fork",
+  "version": "0.0.0",
+  "private": false,
   "description": "Root workspace for specsmd development",
+  "bin": {
+    "specsmd": "./src/bin/cli.js"
+  },
   "scripts": {
+    "postinstall": "npm install --prefix src --no-audit --no-fund --silent",
     "validate:all": "cd src && npm run validate:all",
     "lint:md:fix": "cd src && npm run lint:md:fix",
     "deps:check": "echo '\\n=== NPM Package (src/) ===' && npx npm-check-updates --cwd src && echo '\\n=== VS Code Extension ===' && npx npm-check-updates --cwd vs-code-extension",
