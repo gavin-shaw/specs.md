@@ -11,8 +11,10 @@ program
 
 program
     .command('install')
-    .description('Interactively install a specsmd flow')
-    .action(installer.install);
+    .description('Install a specsmd flow (interactive by default)')
+    .option('--flow <flow>', 'Skip the flow prompt: simple|fire|aidlc|ideation')
+    .option('--tools <list>', 'Skip the tool prompt: comma-separated tool keys')
+    .action((options) => installer.install(options));
 
 program
     .command('uninstall')
