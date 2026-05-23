@@ -291,7 +291,10 @@ const GITIGNORE_PATTERNS = [
   '.claude/commands/specsmd-*',
   '.codex/skills/specsmd-*',
   '.cursor/commands/specsmd-*',
-  '.specsmd'
+  '.specsmd',
+  '.specs-fire/intents',
+  '.specs-fire/runs',
+  '.specs-fire/state.yaml'
 ];
 
 const GITIGNORE_HEADER = '# specsmd';

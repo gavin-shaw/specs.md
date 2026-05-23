@@ -11,7 +11,10 @@ const EXPECTED_PATTERNS = [
   '.claude/commands/specsmd-*',
   '.codex/skills/specsmd-*',
   '.cursor/commands/specsmd-*',
-  '.specsmd'
+  '.specsmd',
+  '.specs-fire/intents',
+  '.specs-fire/runs',
+  '.specs-fire/state.yaml'
 ];
 
 describe('patchRootGitignore', () => {
@@ -52,7 +55,10 @@ describe('patchRootGitignore', () => {
       '.claude/agents/specsmd-*',
       '.claude/commands/specsmd-*',
       '.codex/skills/specsmd-*',
-      '.cursor/commands/specsmd-*'
+      '.cursor/commands/specsmd-*',
+      '.specs-fire/intents',
+      '.specs-fire/runs',
+      '.specs-fire/state.yaml'
     ]);
 
     const contents = readFileSync(gitignorePath, 'utf8');
