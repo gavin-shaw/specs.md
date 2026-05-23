@@ -307,4 +307,16 @@ cd src && npm run validate:all
 
 ---
 
-*Last updated: 2026-01-09 - Added testing requirements section*
+## 11. **Branching Convention**
+
+Feature branches **always come off `main`**, never off `personal` or other long-lived branches.
+
+- `main` — upstream tracking branch; clean base for new work.
+- `personal` — accumulates work-in-progress features that haven't been upstreamed yet. Branching off `personal` would silently include all those features in the new branch, entangling unrelated work and making the feature un-mergeable upstream.
+- Workflow: branch off `main` → push → merge into `personal` when ready → push `personal`. Upstream PRs (when applicable) target `main`.
+
+When asked to "cut a new feature branch", first `git checkout main` (and `git pull` if behind), then `git checkout -b <feature-name>`. Do NOT branch off the current branch unless the user explicitly says so.
+
+---
+
+*Last updated: 2026-05-23 - Added branching convention section*
