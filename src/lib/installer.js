@@ -55,6 +55,38 @@ async function countFiles(dir) {
     return count;
 }
 
+function parseFlowFlag(value) {
+  const validKeys = Object.entries(FLOWS)
+    .filter(([, f]) => !f.disabled)
+    .map(([k]) => k);
+  if (!validKeys.includes(value)) {
+    CLIUtils.displayError(
+      `Invalid --flow value "${value}". Valid: ${validKeys.join(', ')}`
+    );
+    process.exit(1);
+  }
+  return value;
+}
+
+function parseToolsFlag(value, installers) {
+  const validKeys = installers.map(i => i.key);
+  const requested = value.split(',').map(s => s.trim()).filter(Boolean);
+  if (requested.length === 0) {
+    CLIUtils.displayError(
+      `--tools must list at least one tool. Valid: ${validKeys.join(', ')}`
+    );
+    process.exit(1);
+  }
+  const bad = requested.filter(k => !validKeys.includes(k));
+  if (bad.length > 0) {
+    CLIUtils.displayError(
+      `Invalid --tools value(s): ${bad.join(', ')}. Valid: ${validKeys.join(', ')}`
+    );
+    process.exit(1);
+  }
+  return requested;
+}
+
 async function detectTools() {
   const detected = [];
   const installers = InstallerFactory.getInstallers();
@@ -67,7 +99,14 @@ async function detectTools() {
   return detected;
 }
 
-async function install() {
+async function install(options = {}) {
+  // Validate flag values BEFORE any side effects (analytics, fs, prompts)
+  const installersForValidation = InstallerFactory.getInstallers();
+  const flowFromFlag = options.flow != null ? parseFlowFlag(options.flow) : null;
+  const toolsFromFlag = options.tools != null
+    ? parseToolsFlag(options.tools, installersForValidation)
+    : null;
+
   // Initialize analytics (respects opt-out env vars)
   analytics.init();
   await analytics.trackInstallerStarted();
@@ -95,28 +134,38 @@ async function install() {
   // Step 2: Select tools
   CLIUtils.displayStep(2, 4, 'Select target tools');
 
-  // Build choices with descriptive formatting
-  const toolChoices = installers.map(installer => ({
-    title: installer.name + (detectedToolKeys.includes(installer.key) ? theme.dim(' (detected)') : ''),
-    value: installer.key,
-    selected: detectedToolKeys.includes(installer.key)
-  }));
+  let selectedToolKeys;
+  if (toolsFromFlag) {
+    selectedToolKeys = toolsFromFlag;
+    const chosenNames = installers
+      .filter(i => selectedToolKeys.includes(i.key))
+      .map(i => i.name);
+    CLIUtils.displayStatus('', `Using --tools: ${chosenNames.join(', ')}`, 'success');
+  } else {
+    // Build choices with descriptive formatting
+    const toolChoices = installers.map(installer => ({
+      title: installer.name + (detectedToolKeys.includes(installer.key) ? theme.dim(' (detected)') : ''),
+      value: installer.key,
+      selected: detectedToolKeys.includes(installer.key)
+    }));
 
-  console.log(theme.dim('  [Space] toggle  [Enter] confirm  [a] toggle all'));
-  console.log(theme.dim(`  ${theme.success('[x]')} = selected    ${theme.dim('[ ]')} = not selected\n`));
+    console.log(theme.dim('  [Space] toggle  [Enter] confirm  [a] toggle all'));
+    console.log(theme.dim(`  ${theme.success('[x]')} = selected    ${theme.dim('[ ]')} = not selected\n`));
 
-  const { selectedToolKeys } = await prompts({
-    type: 'multiselect',
-    name: 'selectedToolKeys',
-    message: 'Choose tools:',
-    choices: toolChoices,
-    min: 1,
-    instructions: false
-  });
+    const promptResult = await prompts({
+      type: 'multiselect',
+      name: 'selectedToolKeys',
+      message: 'Choose tools:',
+      choices: toolChoices,
+      min: 1,
+      instructions: false
+    });
+    selectedToolKeys = promptResult.selectedToolKeys;
 
-  if (!selectedToolKeys || selectedToolKeys.length === 0) {
-    CLIUtils.displayError('Installation cancelled - no tools selected');
-    process.exit(1);
+    if (!selectedToolKeys || selectedToolKeys.length === 0) {
+      CLIUtils.displayError('Installation cancelled - no tools selected');
+      process.exit(1);
+    }
   }
 
   // Track IDE selection (await to ensure delivery before potential cancel)
@@ -125,23 +174,31 @@ async function install() {
   // Step 3: Select Flow
   console.log('');
   CLIUtils.displayStep(3, 4, 'Select SDLC flow');
-  console.log(theme.dim(`  Learn more about flows: ${LINKS.flows}\n`));
-  const flowChoices = Object.entries(FLOWS).map(([key, flow]) => ({
-    title: `${flow.name} - ${flow.description}${flow.message || ''}`,
-    value: key,
-    disabled: flow.disabled
-  }));
 
-  const { selectedFlow } = await prompts({
-    type: 'select',
-    name: 'selectedFlow',
-    message: 'Which SDLC flow would you like to install?',
-    choices: flowChoices
-  });
+  let selectedFlow;
+  if (flowFromFlag) {
+    selectedFlow = flowFromFlag;
+    CLIUtils.displayStatus('', `Using --flow: ${FLOWS[selectedFlow].name}`, 'success');
+  } else {
+    console.log(theme.dim(`  Learn more about flows: ${LINKS.flows}\n`));
+    const flowChoices = Object.entries(FLOWS).map(([key, flow]) => ({
+      title: `${flow.name} - ${flow.description}${flow.message || ''}`,
+      value: key,
+      disabled: flow.disabled
+    }));
 
-  if (!selectedFlow) {
-    CLIUtils.displayError('Installation cancelled');
-    process.exit(1);
+    const promptResult = await prompts({
+      type: 'select',
+      name: 'selectedFlow',
+      message: 'Which SDLC flow would you like to install?',
+      choices: flowChoices
+    });
+    selectedFlow = promptResult.selectedFlow;
+
+    if (!selectedFlow) {
+      CLIUtils.displayError('Installation cancelled');
+      process.exit(1);
+    }
   }
 
   // Track flow selection (await to ensure delivery before potential cancel)
@@ -401,6 +458,8 @@ async function uninstall() {
 
 module.exports = {
   install,
-  uninstall
+  uninstall,
+  parseFlowFlag,
+  parseToolsFlag
 };
 
