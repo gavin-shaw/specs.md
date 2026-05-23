@@ -27,23 +27,6 @@ Supports both single-item and multi-item (batch/wide) runs.
   Update markers as you progress: [x] = done, ← current = active step
 </progress_display>
 
-<prerequisites>
-  Before executing scripts, ensure required dependencies are installed:
-
-  <step n="1" title="Check yaml Package">
-    <action>Run: npm list yaml --depth=0 2>/dev/null || echo "NOT_FOUND"</action>
-    <check if="output contains NOT_FOUND">
-      <output>Installing required dependency: yaml</output>
-      <action>Run: npm install yaml</action>
-    </check>
-  </step>
-
-  | Package | Purpose | Install Command |
-  |---------|---------|-----------------|
-  | `yaml` | Parse/stringify state.yaml | `npm install yaml` |
-
-</prerequisites>
-
 <triggers>
   - Pending work item ready for execution
   - Resumed from interrupted run

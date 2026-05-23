@@ -34,6 +34,34 @@ function categorizeError(error) {
 }
 
 /**
+ * Bundle YAML deps into .specsmd/node_modules/ so flow scripts can resolve
+ * them without requiring the user's project to have yaml/js-yaml installed.
+ *
+ * Uses require.resolve so it works whether specsmd was loaded via npx cache,
+ * a global install, or a local checkout. Also writes .specsmd/.gitignore so
+ * the bundled deps stay untracked.
+ *
+ * @param {string} specsmdDir - The .specsmd directory in the user's project
+ */
+async function bundleScriptDeps(specsmdDir) {
+    const depsToBundle = ['yaml', 'js-yaml'];
+    const targetNodeModules = path.join(specsmdDir, 'node_modules');
+    await fs.ensureDir(targetNodeModules);
+
+    for (const dep of depsToBundle) {
+        const sourceDir = path.dirname(require.resolve(`${dep}/package.json`));
+        const targetDir = path.join(targetNodeModules, dep);
+        await fs.copy(sourceDir, targetDir);
+    }
+
+    await fs.writeFile(
+        path.join(specsmdDir, '.gitignore'),
+        'node_modules/\n',
+        'utf8'
+    );
+}
+
+/**
  * Count files in a directory recursively
  * @param {string} dir - Directory path
  * @returns {Promise<number>} File count
@@ -288,6 +316,12 @@ async function installFlow(flowKey, toolKeys) {
 
   CLIUtils.displayStatus('', 'Created installation manifest', 'success');
 
+  // Bundle yaml/js-yaml into .specsmd/node_modules/ so flow scripts can find
+  // them via Node's normal module resolution. Also writes .specsmd/.gitignore
+  // to keep the bundled deps out of the user's git tree.
+  await bundleScriptDeps(specsmdDir);
+  CLIUtils.displayStatus('', 'Bundled script dependencies', 'success');
+
   // Count files created for analytics
   const filesCreated = await countFiles(specsmdDir);
   return filesCreated;
@@ -401,6 +435,7 @@ async function uninstall() {
 
 module.exports = {
   install,
-  uninstall
+  uninstall,
+  bundleScriptDeps
 };
 
