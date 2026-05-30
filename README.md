@@ -172,13 +172,20 @@ specs/
 
 **Output structure:**
 ```
-.specs-fire/
+<repo>/.docs/
+└── *.md                 # Project standards
+
+~/.specs-fire/<project-folder-name>/
 ├── state.yaml           # Central state tracking
-├── standards/           # Project standards
 ├── intents/             # Intent documentation
-├── runs/                # Run logs
-└── walkthroughs/        # Generated documentation
+└── runs/                # Run logs and walkthroughs
 ```
+
+Global FIRE migration is confirm-gated. It moves old `.specs-fire/standards/` to
+`.docs/`, moves state/intents/runs to `~/.specs-fire/<project-folder-name>/`,
+removes repo-local `specsmd-*` entry points for claude/codex/cursor, and retires
+repo-local `.specs-fire/`. Repositories with the same folder name collide in the
+global artifact folder and must be handled deliberately.
 
 [FIRE Flow Documentation →](https://specs.md/fire-flow/overview)
 
@@ -285,7 +292,8 @@ npx specsmd@latest install
 
 Check if the artifacts directory exists for your flow:
 ```bash
-ls .specs-fire/    # FIRE flow
+ls ~/.specs-fire/$(basename "$PWD")/    # FIRE state, intents, runs
+ls .docs/                             # FIRE standards
 ls specs/          # Simple flow
 ls memory-bank/    # AI-DLC flow
 ```
@@ -297,7 +305,7 @@ If missing, initialize your project using the appropriate agent.
 <summary><strong>Standards not being followed in generated code</strong></summary>
 
 Ensure standards are defined in your flow's standards directory:
-- FIRE: `.specs-fire/standards/`
+- FIRE: `.docs/`
 - AI-DLC: `memory-bank/standards/`
 
 Run project initialization if missing.

@@ -83,7 +83,14 @@ Global install installs the FIRE flow once into each selected tool's global home
 - Codex: `~/.codex/skills/specsmd-fire*/SKILL.md`
 - Cursor: `~/.cursor/commands/specsmd-fire*.md`
 
-Only `claude`, `codex`, and `cursor` support global FIRE install. Each repository keeps only its repo-local `.specs-fire/` artifacts for state, intents, runs, and standards. The global install path does not write `.specsmd/` or per-repo command files into the target repository.
+Only `claude`, `codex`, and `cursor` support global FIRE install. FIRE uses a split storage model:
+
+- Standards live in the repository at `<repo>/.docs/`
+- State, intents, and runs live globally at `~/.specs-fire/<project-folder-name>/`
+
+The project key is the repo-root folder name. Two different repositories with the same folder name collide in `~/.specs-fire/`, so rename one folder or migrate manually before proceeding. The global install path does not write `.specsmd/` or per-repo command files into the target repository.
+
+When global FIRE runs in a repo with an old repo-local install, it prompts before migration. On confirmation it moves standards to `.docs/`, moves `state.yaml`, `intents/`, and `runs/` to `~/.specs-fire/<project-folder-name>/`, removes repo-local `specsmd-*` entry points for claude/codex/cursor, and retires repo-local `.specs-fire/`. If the target global folder already exists, migration warns and blocks instead of silently overwriting.
 
 To remove a global install:
 
@@ -91,7 +98,7 @@ To remove a global install:
 npx specsmd uninstall --global
 ```
 
-Merge safety: source flow files under `src/flows/fire/**` are not edited for global paths. Global paths are produced by install-time rewriting in isolated installer modules, so upstream flow updates stay easier to merge.
+Merge safety: source flow files under `src/flows/fire/**` are not edited for static global paths. Static path changes are produced by install-time rewriting in isolated installer modules, and the runtime state path uses a bounded `fireDir()` hook in the builder scripts that is earmarked for upstream contribution.
 
 Handoff note: the external skillshare `install-specsmd` skill should be updated separately to call `specsmd install --global`; that skill lives outside this repository.
 

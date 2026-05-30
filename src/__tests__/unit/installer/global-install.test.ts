@@ -52,6 +52,7 @@ describe('installFlowGlobal', () => {
     tempHome = mkdtempSync(join(tmpdir(), 'specsmd-global-home-'));
     tempCwd = mkdtempSync(join(tmpdir(), 'specsmd-global-cwd-'));
     originalCwd = process.cwd();
+    process.chdir(tempCwd);
   });
 
   afterEach(() => {
@@ -80,13 +81,15 @@ describe('installFlowGlobal', () => {
     expect(codexSkill).toContain(join(tempHome, '.codex', 'skills', 'specsmd-fire', 'agents', 'orchestrator', 'agent.md'));
   });
 
-  it('rewrites installed flow definitions while preserving repo-local artifact paths', async () => {
+  it('rewrites installed flow definitions and split storage paths', async () => {
     await installFlowGlobal('fire', ['codex'], { baseHome: tempHome });
 
     const installedFlow = collectTextFiles(join(tempHome, '.codex', 'skills', 'specsmd-fire'));
 
     expect(installedFlow).not.toContain('.specsmd/fire/');
-    expect(installedFlow).toContain('.specs-fire/state.yaml');
+    expect(installedFlow).toContain('~/.specs-fire/<project-name>/state.yaml');
+    expect(installedFlow).toContain('.docs/');
+    expect(installedFlow).toContain('SPECSMD_ARTIFACT_ROOT="$HOME/.specs-fire/$(basename "{rootPath}")"');
     expect(installedFlow).toContain(join(tempHome, '.codex', 'skills', 'specsmd-fire', 'memory-bank.yaml'));
   });
 

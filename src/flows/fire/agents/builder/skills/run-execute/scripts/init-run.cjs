@@ -41,6 +41,12 @@ function fireError(message, code, suggestion) {
 const VALID_MODES = ['autopilot', 'confirm', 'validate'];
 const VALID_SCOPES = ['single', 'batch', 'wide'];
 
+function fireDir(rootPath) {
+  return process.env.SPECSMD_ARTIFACT_ROOT
+    ? path.resolve(process.env.SPECSMD_ARTIFACT_ROOT)
+    : path.join(rootPath, '.specs-fire');
+}
+
 function validateRootPath(rootPath) {
   if (!rootPath || typeof rootPath !== 'string' || rootPath.trim() === '') {
     throw fireError('rootPath is required.', 'INIT_001', 'Provide a valid project root path.');
@@ -94,11 +100,11 @@ function validateWorkItems(workItems) {
 }
 
 function validateFireProject(rootPath) {
-  const fireDir = path.join(rootPath, '.specs-fire');
-  const statePath = path.join(fireDir, 'state.yaml');
-  const runsPath = path.join(fireDir, 'runs');
+  const fireRoot = fireDir(rootPath);
+  const statePath = path.join(fireRoot, 'state.yaml');
+  const runsPath = path.join(fireRoot, 'runs');
 
-  if (!fs.existsSync(fireDir)) {
+  if (!fs.existsSync(fireRoot)) {
     throw fireError(
       `FIRE project not initialized at: "${rootPath}".`,
       'INIT_041',
@@ -114,7 +120,7 @@ function validateFireProject(rootPath) {
     );
   }
 
-  return { fireDir, statePath, runsPath };
+  return { fireDir: fireRoot, statePath, runsPath };
 }
 
 // =============================================================================
@@ -497,4 +503,4 @@ if (require.main === module) {
   }
 }
 
-module.exports = { initRun };
+module.exports = { initRun, fireDir };

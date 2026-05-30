@@ -81,11 +81,17 @@ function validateInputs(rootPath, runId, checkpointState) {
   return normalizedState;
 }
 
-function validateFireProject(rootPath) {
-  const fireDir = path.join(rootPath, '.specs-fire');
-  const statePath = path.join(fireDir, 'state.yaml');
+function fireDir(rootPath) {
+  return process.env.SPECSMD_ARTIFACT_ROOT
+    ? path.resolve(process.env.SPECSMD_ARTIFACT_ROOT)
+    : path.join(rootPath, '.specs-fire');
+}
 
-  if (!fs.existsSync(fireDir)) {
+function validateFireProject(rootPath) {
+  const fireRoot = fireDir(rootPath);
+  const statePath = path.join(fireRoot, 'state.yaml');
+
+  if (!fs.existsSync(fireRoot)) {
     throw fireError(
       `FIRE project not initialized at: "${rootPath}".`,
       'CHECKPOINT_010',
@@ -249,6 +255,7 @@ if (require.main === module) {
 
 module.exports = {
   VALID_STATES,
+  fireDir,
   normalizeCheckpointState,
   updateCheckpoint
 };

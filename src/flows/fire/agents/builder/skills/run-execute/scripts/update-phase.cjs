@@ -66,11 +66,17 @@ function validateInputs(rootPath, runId, phase) {
   }
 }
 
-function validateFireProject(rootPath, runId) {
-  const fireDir = path.join(rootPath, '.specs-fire');
-  const statePath = path.join(fireDir, 'state.yaml');
+function fireDir(rootPath) {
+  return process.env.SPECSMD_ARTIFACT_ROOT
+    ? path.resolve(process.env.SPECSMD_ARTIFACT_ROOT)
+    : path.join(rootPath, '.specs-fire');
+}
 
-  if (!fs.existsSync(fireDir)) {
+function validateFireProject(rootPath, runId) {
+  const fireRoot = fireDir(rootPath);
+  const statePath = path.join(fireRoot, 'state.yaml');
+
+  if (!fs.existsSync(fireRoot)) {
     throw fireError(
       `FIRE project not initialized at: "${rootPath}".`,
       'PHASE_010',
@@ -247,4 +253,4 @@ if (require.main === module) {
   }
 }
 
-module.exports = { updatePhase, VALID_PHASES };
+module.exports = { updatePhase, VALID_PHASES, fireDir };

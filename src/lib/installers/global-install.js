@@ -100,7 +100,11 @@ async function copyFlowEntry(sourcePath, targetPath, flowRoot) {
 
     if (await isTextFile(sourcePath)) {
         const content = await fs.readFile(sourcePath, 'utf8');
-        await fs.outputFile(targetPath, rewriteGlobalFirePaths(content, flowRoot), 'utf8');
+        await fs.outputFile(
+            targetPath,
+            rewriteGlobalFirePaths(content, flowRoot, { rewriteArtifacts: sourcePath.endsWith('.md') }),
+            'utf8'
+        );
         return;
     }
 
@@ -143,7 +147,11 @@ async function emitEntryPoints(flowPath, toolKey, paths) {
         const sourcePath = path.join(commandsDir, commandFile);
         const commandName = path.basename(commandFile, '.md');
         const entryName = `specsmd-${commandName}`;
-        const rewritten = rewriteGlobalFirePaths(await fs.readFile(sourcePath, 'utf8'), paths.flowRoot);
+        const rewritten = rewriteGlobalFirePaths(
+            await fs.readFile(sourcePath, 'utf8'),
+            paths.flowRoot,
+            { rewriteArtifacts: true }
+        );
 
         if (paths.descriptor.entryType === 'skill') {
             const skillDir = path.join(paths.entryDir, entryName);
@@ -212,6 +220,13 @@ async function installFlowGlobal(flowKey, toolKeys, options = {}) {
     assertSupportedGlobalTools(selectedToolKeys);
 
     const baseHome = resolveBaseHome(options);
+    const repoRoot = path.resolve(options.repoRoot || process.cwd());
+    const { planRepoLocalMigration } = require('./storage-migration');
+    const migration = await planRepoLocalMigration(repoRoot, { ...options, baseHome });
+    if (migration.status === 'confirmed') {
+        const { executeMigration } = require('./migration-executor');
+        await executeMigration(migration.plan, options);
+    }
     const flowPath = resolveFlowPath(flowKey);
     const locations = {};
     const attemptedPaths = [];

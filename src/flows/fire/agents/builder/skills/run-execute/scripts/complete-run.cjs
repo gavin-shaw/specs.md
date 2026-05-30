@@ -61,14 +61,20 @@ function validateInputs(rootPath, runId) {
   }
 }
 
+function fireDir(rootPath) {
+  return process.env.SPECSMD_ARTIFACT_ROOT
+    ? path.resolve(process.env.SPECSMD_ARTIFACT_ROOT)
+    : path.join(rootPath, '.specs-fire');
+}
+
 function validateFireProject(rootPath, runId) {
-  const fireDir = path.join(rootPath, '.specs-fire');
-  const statePath = path.join(fireDir, 'state.yaml');
-  const runsPath = path.join(fireDir, 'runs');
+  const fireRoot = fireDir(rootPath);
+  const statePath = path.join(fireRoot, 'state.yaml');
+  const runsPath = path.join(fireRoot, 'runs');
   const runPath = path.join(runsPath, runId);
   const runLogPath = path.join(runPath, 'run.md');
 
-  if (!fs.existsSync(fireDir)) {
+  if (!fs.existsSync(fireRoot)) {
     throw fireError(
       `FIRE project not initialized at: "${rootPath}".`,
       'COMPLETE_010',
@@ -139,7 +145,7 @@ function buildMarkdownWithFrontmatter(frontmatter, body) {
  * Update work item markdown file frontmatter with new status.
  */
 function updateWorkItemMarkdown(rootPath, intentId, workItemId, status, runId, completedAt) {
-  const filePath = path.join(rootPath, '.specs-fire', 'intents', intentId, 'work-items', `${workItemId}.md`);
+  const filePath = path.join(fireDir(rootPath), 'intents', intentId, 'work-items', `${workItemId}.md`);
 
   if (!fs.existsSync(filePath)) {
     // File doesn't exist - not an error, just skip
@@ -176,7 +182,7 @@ function updateWorkItemMarkdown(rootPath, intentId, workItemId, status, runId, c
  * Update intent brief.md frontmatter based on work item statuses.
  */
 function updateIntentMarkdown(rootPath, intentId, state) {
-  const filePath = path.join(rootPath, '.specs-fire', 'intents', intentId, 'brief.md');
+  const filePath = path.join(fireDir(rootPath), 'intents', intentId, 'brief.md');
 
   if (!fs.existsSync(filePath)) {
     return false;
@@ -797,4 +803,4 @@ if (require.main === module) {
   }
 }
 
-module.exports = { completeRun, completeCurrentItem };
+module.exports = { completeRun, completeCurrentItem, fireDir };
