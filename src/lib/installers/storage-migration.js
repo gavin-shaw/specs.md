@@ -1,23 +1,25 @@
 const fs = require('fs-extra');
 const path = require('path');
-const prompts = require('prompts');
-const { SUPPORTED_GLOBAL_TOOLS } = require('./global-install');
+const { SUPPORTED_GLOBAL_TOOLS } = require('./global-tools');
 const { resolveArtifactPaths } = require('./artifact-paths');
 
-function toolEntryDir(toolKey) {
+// The repo-local install writes entry points into one or more per-tool dirs.
+// claude historically wrote BOTH .claude/commands AND .claude/agents, so both
+// must be detected and cleaned (scope: commands + agents only, NOT skills).
+function toolEntryDirs(toolKey) {
     if (toolKey === 'codex') {
-        return path.join('.codex', 'skills');
+        return [path.join('.codex', 'skills')];
     }
 
     if (toolKey === 'claude') {
-        return path.join('.claude', 'commands');
+        return [path.join('.claude', 'commands'), path.join('.claude', 'agents')];
     }
 
     if (toolKey === 'cursor') {
-        return path.join('.cursor', 'commands');
+        return [path.join('.cursor', 'commands')];
     }
 
-    return null;
+    return [];
 }
 
 async function existingPaths(repoRoot, relativePaths) {
@@ -42,24 +44,21 @@ async function detectRepoLocalInstall(repoRoot) {
     const entryPointSignals = [];
 
     for (const toolKey of SUPPORTED_GLOBAL_TOOLS) {
-        const relativeDir = toolEntryDir(toolKey);
-        if (!relativeDir) {
-            continue;
-        }
+        for (const relativeDir of toolEntryDirs(toolKey)) {
+            const absoluteDir = path.join(repoRoot, relativeDir);
+            if (!await fs.pathExists(absoluteDir)) {
+                continue;
+            }
 
-        const absoluteDir = path.join(repoRoot, relativeDir);
-        if (!await fs.pathExists(absoluteDir)) {
-            continue;
-        }
-
-        const entries = await fs.readdir(absoluteDir);
-        for (const entry of entries.filter(item => item.startsWith('specsmd-'))) {
-            const relativePath = path.join(relativeDir, entry);
-            entryPointSignals.push({
-                tool: toolKey,
-                relativePath,
-                path: path.join(repoRoot, relativePath)
-            });
+            const entries = await fs.readdir(absoluteDir);
+            for (const entry of entries.filter(item => item.startsWith('specsmd-'))) {
+                const relativePath = path.join(relativeDir, entry);
+                entryPointSignals.push({
+                    tool: toolKey,
+                    relativePath,
+                    path: path.join(repoRoot, relativePath)
+                });
+            }
         }
     }
 
@@ -147,7 +146,7 @@ async function confirmMigrationPlan(plan, options = {}) {
         return { status: 'not_needed', confirmed: false, plan };
     }
 
-    const promptFn = options.prompt || prompts;
+    const promptFn = options.prompt || require('prompts');
     const response = await promptFn({
         type: 'confirm',
         name: 'confirm',

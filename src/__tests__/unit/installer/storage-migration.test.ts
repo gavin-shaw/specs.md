@@ -146,21 +146,32 @@ describe('storage migration detection and confirmation', () => {
     expect(readFileSync(join(repoRoot, '.specs-fire', 'state.yaml'), 'utf8')).toContain('demo');
   });
 
-  it('global install triggers detection and confirm for repo-local installs', async () => {
+  it('global install does NOT migrate repo-local installs (orchestrator-triggered now)', async () => {
     createSpecsFire();
-    let observedStatus = '';
+    const projectKey = repoRoot.split('/').pop() as string;
+    const beforeRepo = snapshot(repoRoot);
+    let migrationObserved = false;
 
     await installFlowGlobal('fire', ['codex'], {
       baseHome,
       repoRoot,
-      prompt: async () => ({ confirm: false }),
-      onMigrationPlan: (result: { status: string }) => {
-        observedStatus = result.status;
+      // If install still called migration it would invoke prompt / onMigrationPlan.
+      prompt: async () => {
+        migrationObserved = true;
+        return { confirm: true };
+      },
+      onMigrationPlan: () => {
+        migrationObserved = true;
       }
     });
 
-    expect(observedStatus).toBe('skipped');
+    expect(migrationObserved).toBe(false);
+    // Repo-local artifacts untouched: nothing moved or removed.
+    expect(snapshot(repoRoot)).toEqual(beforeRepo);
     expect(existsSync(join(repoRoot, '.specs-fire', 'state.yaml'))).toBe(true);
+    // No global artifact root created for the project.
+    expect(existsSync(join(baseHome, '.specs-fire', projectKey))).toBe(false);
+    // Global skill still installed.
     expect(existsSync(join(baseHome, '.codex', 'skills', 'specsmd-fire', 'SKILL.md'))).toBe(true);
   });
 });

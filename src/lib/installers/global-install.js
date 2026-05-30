@@ -4,8 +4,8 @@ const path = require('path');
 const yaml = require('js-yaml');
 const { FLOWS } = require('../constants');
 const { rewriteGlobalFirePaths } = require('./global-rewrite');
+const { SUPPORTED_GLOBAL_TOOLS } = require('./global-tools');
 
-const SUPPORTED_GLOBAL_TOOLS = ['claude', 'codex', 'cursor'];
 const GLOBAL_MANIFEST_NAME = 'specsmd-global-manifest.yaml';
 
 const GLOBAL_TOOLS = {
@@ -136,6 +136,39 @@ function buildSkillContent(skillName, commandContent) {
     ].join('\n');
 }
 
+// Migration-check step injected ONLY into the emitted global orchestrator entry
+// (the `fire` command). The flow source (src/flows/fire/**) is never edited, so
+// the injection stays merge-safe — only the emitted global skill carries it.
+function migrationCheckStep(flowRoot) {
+    const launcher = path.join(flowRoot, 'migrate.cjs');
+    return [
+        '## Step 0 — Repo-Local Migration Check (global install)',
+        '',
+        'BEFORE any initialization or routing, check whether THIS repository still has a',
+        'repo-local specsmd install that should migrate to the global storage model:',
+        '',
+        `1. Run: \`node "${launcher}" --check "$PWD"\``,
+        '2. If it reports `"status": "not_needed"` (empty plan) → continue to Critical First Steps.',
+        '3. If it reports `"status": "pending"` with a plan → show the planned moves/removals to the',
+        '   user and ask for explicit confirmation. Do NOT proceed without a yes.',
+        `4. On explicit confirmation ONLY: \`node "${launcher}" --yes "$PWD"\`, then continue.`,
+        '',
+        'NEVER run `migrate.cjs --yes` without explicit user confirmation in this conversation.',
+        '',
+        '---',
+        ''
+    ].join('\n');
+}
+
+function injectMigrationStep(content, flowRoot) {
+    const step = migrationCheckStep(flowRoot);
+    const marker = '## Critical First Steps';
+    if (content.includes(marker)) {
+        return content.replace(marker, `${step}${marker}`);
+    }
+    return `${content}\n\n${step}`;
+}
+
 async function emitEntryPoints(flowPath, toolKey, paths) {
     const commandsDir = path.join(flowPath, 'commands');
     const commandFiles = (await fs.readdir(commandsDir)).filter(file => file.endsWith('.md')).sort();
@@ -147,11 +180,15 @@ async function emitEntryPoints(flowPath, toolKey, paths) {
         const sourcePath = path.join(commandsDir, commandFile);
         const commandName = path.basename(commandFile, '.md');
         const entryName = `specsmd-${commandName}`;
-        const rewritten = rewriteGlobalFirePaths(
+        let rewritten = rewriteGlobalFirePaths(
             await fs.readFile(sourcePath, 'utf8'),
             paths.flowRoot,
             { rewriteArtifacts: true }
         );
+
+        if (commandName === 'fire') {
+            rewritten = injectMigrationStep(rewritten, paths.flowRoot);
+        }
 
         if (paths.descriptor.entryType === 'skill') {
             const skillDir = path.join(paths.entryDir, entryName);
@@ -200,6 +237,47 @@ async function bundleGlobalScriptDeps(flowRoot) {
     await bundleScriptDeps(flowRoot);
 }
 
+// Resolve a package's root directory tolerantly. fs-extra blocks './package.json'
+// in its "exports" map, so require.resolve('<pkg>/package.json') throws for it;
+// fall back to resolving the entry point and walking up to the package.json.
+async function resolvePackageDir(name) {
+    try {
+        return path.dirname(require.resolve(`${name}/package.json`));
+    } catch (error) {
+        let dir = path.dirname(require.resolve(name));
+        while (!await fs.pathExists(path.join(dir, 'package.json'))) {
+            const parent = path.dirname(dir);
+            if (parent === dir) {
+                throw error;
+            }
+            dir = parent;
+        }
+        return dir;
+    }
+}
+
+// Bundle the self-contained migrate launcher + its lib deps into the global flow
+// root so the orchestrator can run it from any repo with no `specsmd` on PATH.
+async function bundleMigrateLauncher(flowRoot) {
+    const libFiles = [
+        'migrate.cjs',
+        'storage-migration.js',
+        'migration-executor.js',
+        'artifact-paths.js',
+        'global-tools.js'
+    ];
+    for (const file of libFiles) {
+        await fs.copy(path.join(__dirname, file), path.join(flowRoot, file));
+    }
+
+    const nodeModules = path.join(flowRoot, 'node_modules');
+    await fs.ensureDir(nodeModules);
+    for (const dep of ['fs-extra', 'graceful-fs', 'jsonfile', 'universalify']) {
+        const sourceDir = await resolvePackageDir(dep);
+        await fs.copy(sourceDir, path.join(nodeModules, dep));
+    }
+}
+
 function buildManifest(flowKey, tools, locations) {
     return {
         flow: flowKey,
@@ -220,13 +298,9 @@ async function installFlowGlobal(flowKey, toolKeys, options = {}) {
     assertSupportedGlobalTools(selectedToolKeys);
 
     const baseHome = resolveBaseHome(options);
-    const repoRoot = path.resolve(options.repoRoot || process.cwd());
-    const { planRepoLocalMigration } = require('./storage-migration');
-    const migration = await planRepoLocalMigration(repoRoot, { ...options, baseHome });
-    if (migration.status === 'confirmed') {
-        const { executeMigration } = require('./migration-executor');
-        await executeMigration(migration.plan, options);
-    }
+    // NOTE: install --global installs the global skill ONLY. Repo-local migration
+    // is now orchestrator-triggered (run /specsmd-fire in a repo → Step 0 migration
+    // check via the bundled migrate.cjs), NOT performed here.
     const flowPath = resolveFlowPath(flowKey);
     const locations = {};
     const attemptedPaths = [];
@@ -237,6 +311,7 @@ async function installFlowGlobal(flowKey, toolKeys, options = {}) {
             attemptedPaths.push(paths);
             await copyFlowDefinitions(flowPath, paths.flowRoot);
             await bundleGlobalScriptDeps(paths.flowRoot);
+            await bundleMigrateLauncher(paths.flowRoot);
             const entries = await emitEntryPoints(flowPath, toolKey, paths);
 
             locations[toolKey] = {

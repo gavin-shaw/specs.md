@@ -24,6 +24,22 @@ program
     .action((options) => installer.uninstall(options));
 
 program
+    .command('migrate')
+    .description('Migrate a repo-local specsmd install to the global storage model for a directory')
+    .argument('[cwd]', 'Target repository directory', process.cwd())
+    .option('--check', 'Detect and print the migration plan without making changes')
+    .option('--yes', 'Execute the migration non-interactively (destructive)')
+    .action(async (cwd, options) => {
+        const migrate = require('../lib/installers/migrate.cjs');
+        const mode = options.yes ? '--yes' : '--check';
+        const result = await migrate.run(['node', 'migrate', mode, cwd]);
+        console.log(JSON.stringify(result, null, 2));
+        if (result.status === 'blocked') {
+            process.exit(3);
+        }
+    });
+
+program
     .command('dashboard')
     .description('Live terminal dashboard for flow state (FIRE first)')
     .option('--flow <flow>', 'Flow to inspect (fire|aidlc|simple), default auto-detect')
