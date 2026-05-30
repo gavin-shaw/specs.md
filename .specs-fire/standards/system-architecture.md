@@ -1,0 +1,129 @@
+# System Architecture
+
+## Overview
+
+specs.md is a file-based orchestration system for AI-native development workflows. It installs commands, agents, skills, templates, and memory-bank resources into local repositories for tools such as Claude Code, Cursor, Codex, and related agentic coding environments.
+
+## System Context
+
+```text
+User
+  -> specsmd CLI
+  -> Tool-specific installer
+  -> Local repository agent files
+  -> Agentic coding tool executes markdown-defined flows
+  -> Project artifacts are written to filesystem
+```
+
+## Users
+
+- **AI-native engineers**: Install flows and use agents to plan, build, and review work.
+- **Maintainers**: Evolve flow definitions, installers, schemas, and docs.
+- **Extension users**: Browse specs.md artifacts from VS Code.
+
+## External Systems
+
+- **npm**: CLI package distribution and `npx` execution.
+- **VS Code Marketplace / Open VSX**: Extension distribution.
+- **Agentic coding tools**: Consume installed commands, agents, and skills.
+- **Local git repository**: Stores source flow definitions and project artifacts.
+
+## Architecture Pattern
+
+**Pattern**: File-based multi-agent orchestration with installer adapters.
+
+**Rationale**: Markdown and YAML contracts are easy to inspect, version, copy into projects, and execute across multiple AI coding tools.
+
+## Components
+
+### CLI
+
+- **Purpose**: Provide `specsmd` commands for installation and validation.
+- **Responsibilities**: Parse command options, select flows and tools, call installer classes, present terminal output.
+- **Dependencies**: Commander.js, filesystem helpers, terminal UI dependencies.
+
+### Installer Layer
+
+- **Purpose**: Install tool-specific commands, agents, skills, and flow resources.
+- **Responsibilities**: Copy source resources, patch supported ignore rules, create manifests, bundle script dependencies.
+- **Dependencies**: `ToolInstaller`, concrete installer classes, flow resources.
+
+### Flow Definitions
+
+- **Purpose**: Define SDLC behaviors as markdown commands, agents, skills, templates, and schemas.
+- **Responsibilities**: Encode orchestration logic, artifact formats, handoffs, and validation expectations.
+- **Dependencies**: Markdown contracts and memory-bank configuration.
+
+### Dashboard and Extension
+
+- **Purpose**: Surface specs.md artifacts in terminal and VS Code contexts.
+- **Responsibilities**: Detect flows, inspect worktrees and changes, render extension UI.
+- **Dependencies**: VS Code API, Lit, local filesystem.
+
+### Documentation Site
+
+- **Purpose**: Explain installation, concepts, flow usage, and comparisons.
+- **Responsibilities**: Maintain user-facing MDX documentation and images.
+- **Dependencies**: Documentation build tooling outside the core CLI package.
+
+## Data Flow
+
+```text
+Source flow resources in src/flows/
+  -> installer copies resources into target repo
+  -> target tool invokes installed command
+  -> agent reads memory-bank.yaml and local state
+  -> skill writes markdown/YAML artifacts
+  -> user reviews diff and commits manually
+```
+
+## Technology Stack
+
+| Layer | Technology | Purpose |
+|-------|------------|---------|
+| Runtime | Node.js | CLI and tooling execution |
+| CLI | Commander.js | Command parsing |
+| Terminal UI | Ink, React, chalk | Interactive and styled command output |
+| Config | YAML, js-yaml, yaml | Flow and state configuration |
+| Tests | Vitest, Mocha | CLI and extension validation |
+| Extension UI | VS Code API, Lit, esbuild | Artifact explorer |
+| Docs | MDX | Documentation site content |
+
+## Non-Functional Requirements
+
+### Reliability
+
+- Installer operations should be deterministic and idempotent where practical.
+- Generated files should be easy to inspect in `git diff`.
+- Partial failures should produce actionable messages.
+
+### Security
+
+- No secrets in generated flow artifacts.
+- Validate and sanitize paths used by installer operations.
+- Avoid executing untrusted project content as code.
+
+### Maintainability
+
+- Keep flow resources readable as source artifacts.
+- Prefer templates and shared installer behavior over duplicated tool-specific logic.
+- Preserve schema tests when contract files change.
+
+## Constraints
+
+- Markdown and YAML contracts are part of the public behavior.
+- Multiple target tools need similar behavior with tool-specific packaging.
+- Runtime state files such as `.specs-fire/state.yaml`, intents, and runs are generated and ignored by git.
+- `.specs-fire/standards/` is project source and should remain visible to git.
+
+## Key Decisions
+
+| Decision | Choice | Rationale |
+|----------|--------|-----------|
+| Storage | Filesystem artifacts | Git-friendly and tool-agnostic |
+| Distribution | npm and extension marketplaces | Matches JavaScript CLI and VS Code ecosystem |
+| Agent contracts | Markdown skills and commands | Easy for coding agents and humans to inspect |
+| Git writes | User-controlled only | Preserves review and ownership of repository history |
+
+---
+Generated by specs.md FIRE Flow.
