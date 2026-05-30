@@ -183,6 +183,19 @@ describe('install CLI (subprocess integration)', () => {
     }
   });
 
+  it('defaults --global to the fire flow when --flow is omitted (no prompt)', () => {
+    const tmpHome = mkdtempSync(join(tmpdir(), 'specsmd-global-cli-home-'));
+    try {
+      const result = runInstall(['--global', '--tools', 'codex'], { HOME: tmpHome });
+
+      expect(result.status).toBe(0);
+      expect(existsSync(join(tmpHome, '.codex', 'skills', 'specsmd-fire', 'SKILL.md'))).toBe(true);
+      expect(existsSync(join(tmpDir, '.specsmd'))).toBe(false);
+    } finally {
+      rmSync(tmpHome, { recursive: true, force: true });
+    }
+  });
+
   it('rejects unsupported tools for --global and leaves no partial global install', () => {
     const tmpHome = mkdtempSync(join(tmpdir(), 'specsmd-global-cli-home-'));
     try {

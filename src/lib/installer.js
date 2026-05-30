@@ -208,6 +208,11 @@ async function install(options = {}) {
   if (flowFromFlag) {
     selectedFlow = flowFromFlag;
     CLIUtils.displayStatus('', `Using --flow: ${FLOWS[selectedFlow].name}`, 'success');
+  } else if (options.global) {
+    // --global supports only the FIRE flow; default to it so the global install
+    // runs non-interactively without the flow-selection prompt.
+    selectedFlow = 'fire';
+    CLIUtils.displayStatus('', 'Using fire flow (only flow supported by --global)', 'success');
   } else {
     console.log(theme.dim(`  Learn more about flows: ${LINKS.flows}\n`));
     const flowChoices = Object.entries(FLOWS).map(([key, flow]) => ({
