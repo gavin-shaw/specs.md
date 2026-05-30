@@ -6,6 +6,7 @@ const CLIUtils = require('./cli-utils');
 const InstallerFactory = require('./InstallerFactory');
 const { FLOWS, LINKS } = require('./constants');
 const analytics = require('./analytics');
+const { installFlowGlobal, uninstallFlowGlobal } = require('./installers/global-install');
 
 // Use theme from CLIUtils for consistent styling
 const { theme } = CLIUtils;
@@ -237,7 +238,9 @@ async function install(options = {}) {
   CLIUtils.displayStep(4, 4, `Installing ${FLOWS[selectedFlow].name} flow...`);
 
   try {
-    const filesCreated = await installFlow(selectedFlow, selectedToolKeys);
+    const filesCreated = options.global
+      ? await installFlowGlobal(selectedFlow, selectedToolKeys)
+      : await installFlow(selectedFlow, selectedToolKeys);
 
     // Track successful installation for each tool
     const durationMs = Date.now() - installStartTime;
@@ -252,10 +255,15 @@ async function install(options = {}) {
       .filter(i => selectedToolKeys.includes(i.key))
       .map(i => i.name);
 
-    const nextSteps = [
-      `Read .specsmd/${selectedFlow}/quick-start.md for getting started`,
-      `Open ${selectedToolNames.join(' or ')} and run /specsmd-master-agent`
-    ];
+    const nextSteps = options.global
+      ? [
+        'Run specsmd in any repository with a local .specs-fire/ project state',
+        `Open ${selectedToolNames.join(' or ')} and run /specsmd-fire`
+      ]
+      : [
+        `Read .specsmd/${selectedFlow}/quick-start.md for getting started`,
+        `Open ${selectedToolNames.join(' or ')} and run /specsmd-master-agent`
+      ];
     CLIUtils.displayNextSteps(nextSteps);
 
     // Display IDE extension info with brand colors
@@ -280,7 +288,9 @@ async function install(options = {}) {
 
     CLIUtils.displayError(`Installation failed: ${error.message}`);
     console.log(theme.dim('\nRolling back changes...'));
-    await rollback(selectedFlow, selectedToolKeys);
+    if (!options.global) {
+      await rollback(selectedFlow, selectedToolKeys);
+    }
     CLIUtils.displayStatus('', 'Installation rolled back', 'warning');
     process.exit(1);
   }
@@ -451,8 +461,19 @@ async function rollback(flowKey, toolKeys) {
   }
 }
 
-async function uninstall() {
+async function uninstall(options = {}) {
   CLIUtils.displayHeader('Uninstall', '');
+
+  if (options.global) {
+    const result = await uninstallFlowGlobal();
+    if (result.removed.length === 0) {
+      CLIUtils.displayWarning('specsmd is not installed globally');
+      return;
+    }
+
+    CLIUtils.displaySuccess('Global uninstall complete!', 'Complete');
+    return;
+  }
 
   // Check if specsmd is installed
   if (!await fs.pathExists('.specsmd/manifest.yaml')) {
@@ -542,4 +563,3 @@ module.exports = {
   bundleScriptDeps,
   patchRootGitignore
 };
-

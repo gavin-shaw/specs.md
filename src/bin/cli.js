@@ -14,12 +14,14 @@ program
     .description('Install a specsmd flow (interactive by default)')
     .option('--flow <flow>', 'Skip the flow prompt: simple|fire|aidlc|ideation')
     .option('--tools <list>', 'Skip the tool prompt: comma-separated tool keys')
+    .option('--global', 'Install supported flows globally for claude, codex, or cursor')
     .action((options) => installer.install(options));
 
 program
     .command('uninstall')
     .description('Uninstall specsmd from the current project')
-    .action(installer.uninstall);
+    .option('--global', 'Uninstall global specsmd flow artifacts')
+    .action((options) => installer.uninstall(options));
 
 program
     .command('dashboard')

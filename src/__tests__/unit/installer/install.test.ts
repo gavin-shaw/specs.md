@@ -119,12 +119,12 @@ describe('install CLI (subprocess integration)', () => {
     rmSync(tmpDir, { recursive: true, force: true });
   });
 
-  function runInstall(args: string[]): ReturnType<typeof spawnSync> {
+  function runInstall(args: string[], extraEnv: Record<string, string> = {}): ReturnType<typeof spawnSync> {
     return spawnSync('node', [CLI_PATH, 'install', ...args], {
       cwd: tmpDir,
       // No stdin — if the install tries to prompt, it would hang or fail.
       stdio: ['ignore', 'pipe', 'pipe'],
-      env: { ...process.env, SPECSMD_ANALYTICS_DISABLED: '1' },
+      env: { ...process.env, ...extraEnv, SPECSMD_ANALYTICS_DISABLED: '1' },
       timeout: 30_000
     });
   }
@@ -168,5 +168,32 @@ describe('install CLI (subprocess integration)', () => {
     expect(String(result.stdout) + String(result.stderr)).toMatch(/claude/);
 
     expect(readdirSync(tmpDir)).toEqual([]);
+  });
+
+  it('installs globally with --global without creating per-repo specsmd artifacts', () => {
+    const tmpHome = mkdtempSync(join(tmpdir(), 'specsmd-global-cli-home-'));
+    try {
+      const result = runInstall(['--global', '--flow', 'fire', '--tools', 'codex'], { HOME: tmpHome });
+
+      expect(result.status).toBe(0);
+      expect(existsSync(join(tmpDir, '.specsmd'))).toBe(false);
+      expect(existsSync(join(tmpHome, '.codex', 'skills', 'specsmd-fire', 'SKILL.md'))).toBe(true);
+    } finally {
+      rmSync(tmpHome, { recursive: true, force: true });
+    }
+  });
+
+  it('rejects unsupported tools for --global and leaves no partial global install', () => {
+    const tmpHome = mkdtempSync(join(tmpdir(), 'specsmd-global-cli-home-'));
+    try {
+      const result = runInstall(['--global', '--flow', 'fire', '--tools', 'gemini'], { HOME: tmpHome });
+
+      expect(result.status).not.toBe(0);
+      expect(String(result.stdout) + String(result.stderr)).toMatch(/Global install supports only/);
+      expect(existsSync(join(tmpHome, '.gemini'))).toBe(false);
+      expect(existsSync(join(tmpDir, '.specsmd'))).toBe(false);
+    } finally {
+      rmSync(tmpHome, { recursive: true, force: true });
+    }
   });
 });

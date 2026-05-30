@@ -71,6 +71,30 @@ The installer detects your AI coding tools (Claude Code, Cursor, GitHub Copilot)
 - Memory bank structure for context persistence
 - Slash commands for easy agent invocation
 
+### Global FIRE Install
+
+```bash
+npx specsmd install --global --flow fire --tools claude,codex,cursor
+```
+
+Global install installs the FIRE flow once into each selected tool's global home:
+
+- Claude Code: `~/.claude/skills/specsmd-fire*/SKILL.md`
+- Codex: `~/.codex/skills/specsmd-fire*/SKILL.md`
+- Cursor: `~/.cursor/commands/specsmd-fire*.md`
+
+Only `claude`, `codex`, and `cursor` support global FIRE install. Each repository keeps only its repo-local `.specs-fire/` artifacts for state, intents, runs, and standards. The global install path does not write `.specsmd/` or per-repo command files into the target repository.
+
+To remove a global install:
+
+```bash
+npx specsmd uninstall --global
+```
+
+Merge safety: source flow files under `src/flows/fire/**` are not edited for global paths. Global paths are produced by install-time rewriting in isolated installer modules, so upstream flow updates stay easier to merge.
+
+Handoff note: the external skillshare `install-specsmd` skill should be updated separately to call `specsmd install --global`; that skill lives outside this repository.
+
 ### Live Dashboard (FIRE)
 
 Track FIRE state continuously from terminal:
