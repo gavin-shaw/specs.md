@@ -90,6 +90,10 @@ Only `claude`, `codex`, and `cursor` support global FIRE install. FIRE uses a sp
 
 The project key is the repo-root folder name. Two different repositories with the same folder name collide in `~/.specs-fire/`, so rename one folder or migrate manually before proceeding. The global install path does not write `.specsmd/` or per-repo command files into the target repository.
 
+When global FIRE starts in a fresh repo, it confirms before initialization and states the destination: state, intents, and runs go to `~/.specs-fire/<project-folder-name>/`, while standards go to `<repo>/.docs/`. If you want repo-local artifacts instead, exit and run the separate per-repo install: `specsmd install`.
+
+Global FIRE treats a repo as initialized if either `~/.specs-fire/<project-folder-name>/state.yaml` or `<repo>/.specs-fire/state.yaml` exists. This prevents a migrated or existing repo-local project from being initialized again.
+
 When global FIRE runs in a repo with an old repo-local install, it prompts before migration. On confirmation it moves standards to `.docs/`, moves `state.yaml`, `intents/`, and `runs/` to `~/.specs-fire/<project-folder-name>/`, removes repo-local `specsmd-*` entry points for claude/codex/cursor, and retires repo-local `.specs-fire/`. If the target global folder already exists, migration warns and blocks instead of silently overwriting.
 
 To remove a global install:

@@ -181,6 +181,16 @@ specs/
 └── runs/                # Run logs and walkthroughs
 ```
 
+Global FIRE confirms before initializing a fresh repo. The prompt states that
+state/intents/runs will be created in `~/.specs-fire/<project-folder-name>/`,
+standards will be created in `<repo>/.docs/`, and repo-local artifacts are
+available through the separate per-repo install: `specsmd install`.
+
+For initialization detection, global FIRE treats either
+`~/.specs-fire/<project-folder-name>/state.yaml` or
+`<repo>/.specs-fire/state.yaml` as initialized, then routes instead of
+re-initializing.
+
 Global FIRE migration is confirm-gated. It moves old `.specs-fire/standards/` to
 `.docs/`, moves state/intents/runs to `~/.specs-fire/<project-folder-name>/`,
 removes repo-local `specsmd-*` entry points for claude/codex/cursor, and retires
