@@ -169,6 +169,48 @@ function injectMigrationStep(content, flowRoot) {
     return `${content}\n\n${step}`;
 }
 
+// Init-clarity step injected ONLY into the emitted global orchestrator entry.
+// It keeps the source flow merge-safe while teaching the global skill that
+// initialized means either global state OR repo-local state exists.
+function initClarityStep(flowRoot) {
+    const launcher = path.join(flowRoot, 'init-check.cjs');
+    return [
+        '## Step 0b — Init Clarity Check (global install)',
+        '',
+        'BEFORE the Critical First Steps initialization check, determine whether THIS',
+        'repository is already initialized in either supported location:',
+        '',
+        `1. Run: \`node "${launcher}" "$PWD"\``,
+        '2. If the JSON reports `"status": "initialized"` → treat the repo as initialized',
+        '   and continue to route. This dual detection supersedes the simple state check below.',
+        '3. If the JSON reports `"status": "uninitialized"` → before project-init, tell the',
+        '   user exactly where global FIRE will write artifacts:',
+        '   - State, intents, and runs: `~/.specs-fire/<project>/`',
+        '   - Standards: `<repo>/.docs/`',
+        '4. Also tell the user that repo-local artifacts are available via the separate',
+        '   per-repo install: `specsmd install`.',
+        '5. Ask whether to proceed with global init. Default is yes/proceed.',
+        '6. If the user declines, stop immediately without scaffolding anything and point',
+        '   them to `specsmd install` for repo-local artifacts.',
+        '7. If the user confirms or accepts the default, continue to the existing',
+        '   project-init skill unchanged.',
+        '',
+        'Do NOT scaffold repo-local artifacts from the global skill.',
+        '',
+        '---',
+        ''
+    ].join('\n');
+}
+
+function injectInitClarityStep(content, flowRoot) {
+    const step = initClarityStep(flowRoot);
+    const marker = '## Critical First Steps';
+    if (content.includes(marker)) {
+        return content.replace(marker, `${step}${marker}`);
+    }
+    return `${content}\n\n${step}`;
+}
+
 async function emitEntryPoints(flowPath, toolKey, paths) {
     const commandsDir = path.join(flowPath, 'commands');
     const commandFiles = (await fs.readdir(commandsDir)).filter(file => file.endsWith('.md')).sort();
@@ -188,6 +230,7 @@ async function emitEntryPoints(flowPath, toolKey, paths) {
 
         if (commandName === 'fire') {
             rewritten = injectMigrationStep(rewritten, paths.flowRoot);
+            rewritten = injectInitClarityStep(rewritten, paths.flowRoot);
         }
 
         if (paths.descriptor.entryType === 'skill') {
@@ -261,6 +304,7 @@ async function resolvePackageDir(name) {
 async function bundleMigrateLauncher(flowRoot) {
     const libFiles = [
         'migrate.cjs',
+        'init-check.cjs',
         'storage-migration.js',
         'migration-executor.js',
         'artifact-paths.js',

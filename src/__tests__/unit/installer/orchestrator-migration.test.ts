@@ -101,11 +101,20 @@ describe('orchestrator-triggered migration', () => {
 
     expect(orchestrator).toContain('Step 0 — Repo-Local Migration Check');
     expect(orchestrator).toContain('migrate.cjs');
+    expect(orchestrator).toContain('Step 0b — Init Clarity Check');
+    expect(orchestrator).toContain('init-check.cjs');
+    expect(orchestrator).toContain('~/.specs-fire/<project>/');
+    expect(orchestrator).toContain('<repo>/.docs/');
+    expect(orchestrator).toContain('specsmd install');
+    expect(orchestrator).toContain('Default is yes/proceed');
     expect(planner).not.toContain('Step 0 — Repo-Local Migration Check');
     expect(builder).not.toContain('Step 0 — Repo-Local Migration Check');
+    expect(planner).not.toContain('Step 0b — Init Clarity Check');
+    expect(builder).not.toContain('Step 0b — Init Clarity Check');
 
     // Bundled launcher + lib present in the flow root.
     expect(existsSync(join(baseHome, '.claude', 'skills', 'specsmd-fire', 'migrate.cjs'))).toBe(true);
+    expect(existsSync(join(baseHome, '.claude', 'skills', 'specsmd-fire', 'init-check.cjs'))).toBe(true);
     expect(existsSync(join(baseHome, '.claude', 'skills', 'specsmd-fire', 'node_modules', 'fs-extra'))).toBe(true);
 
     // Flow source must remain byte-identical (merge-safe injection at emit time).
