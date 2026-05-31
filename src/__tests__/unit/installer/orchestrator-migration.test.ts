@@ -107,6 +107,9 @@ describe('orchestrator-triggered migration', () => {
     expect(orchestrator).toContain('<repo>/.docs/');
     expect(orchestrator).toContain('specsmd install');
     expect(orchestrator).toContain('Default is yes/proceed');
+    expect(orchestrator).toContain('without scaffolding anything');
+    expect(orchestrator).toContain('project-init skill unchanged');
+    expect(orchestrator).toContain('dual detection supersedes the simple state check below');
     expect(planner).not.toContain('Step 0 — Repo-Local Migration Check');
     expect(builder).not.toContain('Step 0 — Repo-Local Migration Check');
     expect(planner).not.toContain('Step 0b — Init Clarity Check');
