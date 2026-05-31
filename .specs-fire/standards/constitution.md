@@ -4,10 +4,44 @@ Universal policies that apply to all code in this project. Module standards may 
 
 ## Git Workflow
 
-- The user is the only entity that commits, pushes, opens pull requests, amends, force-pushes, or performs other git-write operations unless the latest user message explicitly asks for that exact action.
-- Implementation work stops at an uncommitted diff. Staged changes are acceptable when requested, committed changes are not.
-- Use Conventional Commits when the user later commits changes, for example `feat:`, `fix:`, `docs:`, `chore:`, `refactor:`, or `test:`.
-- Keep `main` deployable and merge feature branches through review.
+### FIRE Branch & Commit Authority
+
+This specs.md repository explicitly self-authorises the specsmd FIRE Builder
+through the generalised global Project self-authorisation mechanism. The grant is
+scoped to this repository's checked-in context; no per-repo edit to
+`~/.claude/CLAUDE.md` or `~/.codex/AGENTS.md` is required once this constitution
+is committed.
+
+- The specsmd FIRE Builder has commit-only local git authority per completed work
+  item in this repository.
+- Allowed Builder git writes are limited to `git switch -c <intent-branch>` /
+  `git switch`, `git add`, and local `git commit`.
+- The Builder must commit at least once per completed work item, using the
+  `commit` skill and the semantic-release Conventional Commits format documented
+  in `.claude/claude.md` section 9.
+- The Builder must not run `git push`, `gh pr create`, merge, force-push, amend
+  commits it did not create, or discard the user's work.
+- Pushes, pull requests, merges, force-pushes, and destructive git operations
+  remain the user's unless the latest user message explicitly grants that exact
+  action.
+
+### Branch Discipline
+
+- Every FIRE intent must declare exactly one `branch:`.
+- Every work item must inherit its parent intent's `branch:`.
+- Intent branches are created from `personal`, not `main` or another feature
+  branch.
+- At run start, the Builder creates or switches to the intent branch and verifies
+  the result with `git branch --show-current`.
+- Work runs one intent at a time: intent N must be fully committed on its intent
+  branch before intent N+1 starts.
+- The Planner must declare `branch:` on every new intent and work item, and order
+  intents for one-at-a-time execution.
+
+For non-FIRE work, or for repositories without their own checked-in scoped grant,
+the default remains that the user is the only entity that commits, pushes, opens
+pull requests, amends, force-pushes, or performs other git-write operations unless
+the latest user message explicitly asks for that exact action.
 
 ## Code Review
 

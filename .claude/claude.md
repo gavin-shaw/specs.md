@@ -319,4 +319,23 @@ When asked to "cut a new feature branch", first `git checkout personal` (and `gi
 
 ---
 
-*Last updated: 2026-05-30 - Branching base changed from `main` to `personal`*
+## FIRE Branch & Commit Policy
+
+FIRE work in this specsmd repository uses one branch per intent and one intent at
+a time.
+
+- Every FIRE intent declares exactly one `branch:` off `personal`; each work item
+  inherits that branch.
+- The specsmd FIRE Builder may create/switch the intent branch, verify it with
+  `git branch --show-current`, stage changes, and make local commits per
+  completed work item.
+- Builder commits must use the `commit` skill and the semantic-release
+  Conventional Commits format in section 9.
+- The Builder must not push, open PRs, merge, force-push, amend commits it did
+  not create, or discard the user's work.
+- Pushes, PRs, merges, and destructive git operations remain the user's unless
+  explicitly granted in the latest user message.
+
+---
+
+*Last updated: 2026-05-31 - Added FIRE branch and commit policy*
