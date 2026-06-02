@@ -24,6 +24,25 @@ checkpoint_1: {{checkpoint_status}}
 - {{this}}
 {{/each}}
 
+## Canonical Patterns
+
+{{#if canonical_patterns}}
+This design conforms to the following established codebase patterns:
+
+{{#each canonical_patterns}}
+- {{this}}
+{{/each}}
+{{#if pattern_divergences}}
+
+**Deliberate divergences:**
+{{#each pattern_divergences}}
+- {{this.pattern}} — {{this.rationale}}
+{{/each}}
+{{/if}}
+{{else}}
+(none — treat as greenfield for this work item)
+{{/if}}
+
 ## Key Decisions
 
 | Decision | Choice | Rationale |

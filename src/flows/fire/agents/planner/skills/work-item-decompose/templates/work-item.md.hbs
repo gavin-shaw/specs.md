@@ -21,6 +21,16 @@ created: {{created}}
 - [ ] {{this}}
 {{/each}}
 
+## Canonical Patterns
+
+{{#if canonical_patterns}}
+{{#each canonical_patterns}}
+- {{this}}
+{{/each}}
+{{else}}
+(none — treat as greenfield for this work item)
+{{/if}}
+
 ## Technical Notes
 
 {{#if technical_notes}}

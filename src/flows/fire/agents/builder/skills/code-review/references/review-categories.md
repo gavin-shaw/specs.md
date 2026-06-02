@@ -87,7 +87,25 @@ Issues related to code organization and design.
 
 ---
 
-## 4. Testing
+## 4. Pattern Conformance
+
+Issues where new code diverges from the codebase's established (canonical) patterns. The work item's "Canonical Patterns" section and its pattern-conformance acceptance criterion are the reference. Default to brownfield; skip only if the project is demonstrably greenfield.
+
+### Requires Confirmation (ALWAYS — never auto-fix a pattern rewrite)
+
+| Issue | Detection | Why Confirm |
+|-------|-----------|-------------|
+| Parallel pattern invented | New approach for a problem that already has a canonical pattern elsewhere | Should follow the existing pattern — cite canonical `file:line` |
+| Naming divergence | Naming scheme differs from established convention in similar files | Match the convention unless there's a reason |
+| Structural divergence | File/module layout differs from the canonical example | Align with the established structure |
+| Wrong error-handling idiom | Error handling differs from the codebase's standard approach | Use the established idiom |
+| Off-pattern data access | Data access bypasses the established repository/query pattern | Route through the canonical mechanism |
+| Off-pattern tests | Tests don't follow the canonical test structure for similar code | Match the established test pattern |
+| Unmet conformance AC | Code does not satisfy the work item's pattern-conformance acceptance criterion | The AC names the required pattern + example |
+
+---
+
+## 5. Testing
 
 Issues related to test quality and coverage.
 

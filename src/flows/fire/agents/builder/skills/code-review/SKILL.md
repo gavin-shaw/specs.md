@@ -24,6 +24,7 @@ Review code written during a run, auto-fix no-brainer issues, and suggest improv
   <mandate>AUTO-FIX only mechanical, non-semantic issues</mandate>
   <mandate>ALWAYS CONFIRM security, architecture, and behavioral changes</mandate>
   <mandate>RESPECT project coding standards from .specs-fire/standards/</mandate>
+  <mandate>ENFORCE PATTERN CONFORMANCE — Default to brownfield. Check the reviewed code against the work item's "Canonical Patterns" and the pattern-conformance acceptance criterion. If the code invents a parallel approach where a canonical pattern exists, raise it as a CONFIRM finding (never auto-fix a pattern rewrite) citing the canonical example `file:line`. Only skip if the project is demonstrably greenfield; if undeterminable, treat as brownfield.</mandate>
   <mandate>NEVER break working code — if tests passed, be conservative</mandate>
   <mandate>RE-RUN tests after auto-fixes — revert if tests fail</mandate>
 </llm>
@@ -59,6 +60,8 @@ Review code written during a run, auto-fix no-brainer issues, and suggest improv
     <action>Load project standards:</action>
     <substep>.specs-fire/standards/coding-standards.md</substep>
     <substep>.specs-fire/standards/testing-standards.md</substep>
+
+    <action>Load the work item's "Canonical Patterns" section and its pattern-conformance acceptance criterion (from .specs-fire/intents/{intent_id}/work-items/{id}.md) to review the code against</action>
 
     <action>Detect project tooling:</action>
     <substep>Check for .eslintrc, eslint.config.js (JavaScript/TypeScript)</substep>
@@ -97,6 +100,7 @@ Review code written during a run, auto-fix no-brainer issues, and suggest improv
     <substep>Code Quality — unused imports, console statements, formatting</substep>
     <substep>Security — hardcoded secrets, injection vulnerabilities, missing validation</substep>
     <substep>Architecture — code placement, coupling, error handling</substep>
+    <substep>Pattern Conformance — code matches the work item's Canonical Patterns; no parallel pattern invented where a canonical one exists</substep>
     <substep>Testing — coverage gaps, edge cases, brittle patterns</substep>
 
     <action>Classify each finding using references/auto-fix-rules.md:</action>
@@ -250,6 +254,7 @@ Review code written during a run, auto-fix no-brainer issues, and suggest improv
 
 <success_criteria>
   <criterion>All files created/modified in run reviewed</criterion>
+  <criterion>Code checked against the work item's Canonical Patterns; parallel-pattern inventions raised as CONFIRM findings (or project confirmed greenfield)</criterion>
   <criterion>Auto-fixes applied without breaking tests</criterion>
   <criterion>Suggestions presented for user approval</criterion>
   <criterion>review-report.md created in run folder</criterion>

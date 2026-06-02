@@ -17,6 +17,7 @@ Supports both single-item and multi-item (batch/wide) runs.
   - [ ] Run initialized (init-run.cjs)
   - [ ] Context loaded
   - [ ] Plan generated  ← {current_step}
+  - [ ] Canonical patterns scanned
   - [ ] Implementation
   - [ ] Tests passing
   - [ ] Code review
@@ -108,6 +109,7 @@ Supports both single-item and multi-item (batch/wide) runs.
   <mandate>TRACK ALL FILE OPERATIONS — Every create, modify MUST be recorded</mandate>
   <mandate>NEVER skip tests — Tests are mandatory, not optional</mandate>
   <mandate>FOLLOW BROWNFIELD RULES — Read before write, match existing patterns</mandate>
+  <mandate>SCAN FOR CANONICAL PATTERNS BEFORE WRITING — Default to brownfield. Locate the codebase's canonical approach for what each work item builds BEFORE writing code, so pattern-conformance acceptance criteria are met on first write rather than by later rework. Only skip if the project is demonstrably greenfield; if undeterminable, treat as brownfield.</mandate>
 </llm>
 
 <artifact_timing critical="true">
@@ -349,6 +351,14 @@ Supports both single-item and multi-item (batch/wide) runs.
     <note>No checkpoint in autopilot - human can review plan.md while agent works</note>
   </step>
 
+  <step n="4b" title="Canonical Pattern Scan (Brownfield)">
+    <critical>Default to brownfield. Only skip if the codebase is demonstrably greenfield (no existing source beyond scaffolding). If you cannot determine, treat it as brownfield and scan.</critical>
+    <action>Read the work item's "Canonical Patterns" section and the intent brief's "Relevant Existing Patterns".</action>
+    <action>Before writing any code, scan the codebase for the canonical approach to what this work item builds — locate representative `file:line` examples for structure, naming, error handling, data access, and tests.</action>
+    <action>Record the exact pattern you will follow (with its example reference) so the implementation meets the pattern-conformance acceptance criterion on FIRST write.</action>
+    <mandate>Do NOT invent a new pattern when a canonical one exists. If your plan diverges from the discovered pattern, follow the existing pattern instead — or surface the conflict to the user before proceeding.</mandate>
+  </step>
+
   <step n="5" title="Execute Implementation">
     <action>Update phase to 'execute':</action>
     <code>node scripts/update-phase.cjs {rootPath} {runId} execute</code>
@@ -374,9 +384,10 @@ Supports both single-item and multi-item (batch/wide) runs.
     </standards_application>
 
     <brownfield_rules>
+      <rule>SCAN for the canonical approach (Step 4b) BEFORE writing — match it on first write</rule>
       <rule>READ existing code before modifying</rule>
       <rule>MATCH existing naming conventions</rule>
-      <rule>FOLLOW existing patterns in the codebase</rule>
+      <rule>FOLLOW existing patterns in the codebase — NEVER invent a parallel pattern when a canonical one exists</rule>
       <rule>PRESERVE existing tests</rule>
       <rule>USE module-specific standards when editing module files</rule>
     </brownfield_rules>
@@ -687,6 +698,7 @@ Supports both single-item and multi-item (batch/wide) runs.
   <criterion>Constitution loaded from root (if exists)</criterion>
   <criterion>Module-specific standards applied to module files</criterion>
   <criterion>plan.md created BEFORE implementation</criterion>
+  <criterion>Canonical patterns scanned before writing (or project confirmed greenfield)</criterion>
   <criterion>All work items implemented</criterion>
   <criterion>All tests pass</criterion>
   <criterion>test-report.md created AFTER tests pass</criterion>

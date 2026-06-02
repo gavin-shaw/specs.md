@@ -23,6 +23,7 @@ Generate design documents for Validate mode work items (Checkpoint 1).
   <mandate>Document DECISIONS with RATIONALE, not just choices</mandate>
   <mandate>Keep concise — enough detail to implement, no more</mandate>
   <mandate>Include risks upfront — don't hide complexity</mandate>
+  <mandate>BROWNFIELD PATTERN DISCIPLINE — Default to brownfield. Carry the work item's "Canonical Patterns" into the design as a named section, and ensure every Key Decision conforms to those patterns (or, where a decision deliberately diverges, record the divergence and its rationale explicitly). Only treat as greenfield if the project is demonstrably so; if undeterminable, treat as brownfield. The Builder follows this design doc in validate mode — patterns omitted here will not reach implementation.</mandate>
 </llm>
 
 <flow>
@@ -35,8 +36,9 @@ Generate design documents for Validate mode work items (Checkpoint 1).
 
   <step n="2" title="Gather Context">
     <action>Review project standards (.specs-fire/standards/)</action>
-    <action>Check existing codebase patterns</action>
-    <action>Identify similar implementations to reference</action>
+    <action>Read the work item's "Canonical Patterns" section and the intent brief's "Relevant Existing Patterns"</action>
+    <action>Confirm and extend them against the live codebase — locate representative `file:line` examples for what this work item builds (structure, naming, error handling, data access, tests)</action>
+    <action>Carry these forward into the design's "Canonical Patterns" section so the validate-mode Builder, which plans from this doc, implements them on first write</action>
   </step>
 
   <step n="3" title="Draft Key Decisions">
@@ -93,6 +95,9 @@ Generate design documents for Validate mode work items (Checkpoint 1).
         ## Summary
         {brief description}
 
+        ## Canonical Patterns
+        {patterns this design conforms to, with file:line references}
+
         ## Key Decisions
         {decisions table}
 
@@ -146,6 +151,7 @@ Generate design documents for Validate mode work items (Checkpoint 1).
 
 <success_criteria>
   <criterion>Work item analyzed for design decisions</criterion>
+  <criterion>Canonical patterns carried into the design (with file:line refs); any deliberate divergence recorded with rationale</criterion>
   <criterion>Key decisions documented with rationale</criterion>
   <criterion>Domain model defined (if applicable)</criterion>
   <criterion>Technical approach specified</criterion>

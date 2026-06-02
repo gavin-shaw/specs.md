@@ -21,6 +21,7 @@ Capture user intent through guided conversation.
   <mandate>NEVER assume requirements — ALWAYS ask clarifying questions</mandate>
   <mandate>Capture the "what" and "why" — leave the "how" for decomposition</mandate>
   <mandate>Let user describe freely — don't interrupt</mandate>
+  <mandate>BROWNFIELD PATTERN DISCIPLINE — Default to brownfield. Before saving the brief, scan the codebase for the canonical patterns relevant to this intent and record them under the brief's "Relevant Existing Patterns" so downstream work items inherit them. Only skip if the project is demonstrably greenfield (no existing source beyond scaffolding); if it cannot be determined, treat it as brownfield.</mandate>
 </llm>
 
 <flow>
@@ -80,8 +81,17 @@ Capture user intent through guided conversation.
     </check>
   </step>
 
+  <step n="3b" title="Discover Relevant Existing Patterns">
+    <critical>Default to brownfield. Only skip this step if the project is demonstrably greenfield (no existing source beyond scaffolding). If you cannot determine, treat it as brownfield and scan.</critical>
+    <action>Scan the codebase for established patterns relevant to this intent — how similar features are structured, naming conventions, error handling, data access, testing approach, module boundaries.</action>
+    <action>For each relevant area, note the canonical approach and cite a representative `file:line` example.</action>
+    <action>Record these as the intent's "Relevant Existing Patterns" in the brief so every work item inherits them and the Builder can match them on first write.</action>
+    <note>This captures the "what already exists" — NOT the "how" of the new implementation, which is decided during decomposition and execution.</note>
+  </step>
+
   <step n="4" title="Generate Intent Brief">
     <action>Create intent ID from title (kebab-case)</action>
+    <action>Populate the brief's "Relevant Existing Patterns" with the patterns discovered in Step 3b (each with its `file:line` example)</action>
     <action>Generate intent brief using template: templates/brief.md.hbs</action>
     <action>Create directory: .specs-fire/intents/{intent-id}/</action>
     <action>Save: .specs-fire/intents/{intent-id}/brief.md</action>
@@ -120,6 +130,7 @@ Capture user intent through guided conversation.
   <criterion>Goal, users, problem clearly captured</criterion>
   <criterion>Success criteria defined</criterion>
   <criterion>Constraints identified</criterion>
+  <criterion>Relevant existing patterns discovered and recorded in the brief (or project confirmed greenfield)</criterion>
   <criterion>Intent brief saved to correct location</criterion>
   <criterion>State.yaml updated with new intent</criterion>
 </success_criteria>

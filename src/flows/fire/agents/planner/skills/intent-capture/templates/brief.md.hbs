@@ -31,6 +31,16 @@ created: {{created}}
 - {{this}}
 {{/each}}
 
+## Relevant Existing Patterns
+
+{{#if existing_patterns}}
+{{#each existing_patterns}}
+- {{this}}
+{{/each}}
+{{else}}
+(none discovered — treat as greenfield for this intent)
+{{/if}}
+
 ## Notes
 
 {{#if notes}}
