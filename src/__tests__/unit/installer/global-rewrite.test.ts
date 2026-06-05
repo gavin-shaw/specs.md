@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 /* eslint-disable @typescript-eslint/no-require-imports */
 const {
-  SCRIPT_ARTIFACT_ENV,
+  scriptArtifactEnv,
   rewriteFireArtifactPaths,
   rewriteGlobalFirePaths
 } = require('../../../lib/installers/global-rewrite');
@@ -40,10 +40,16 @@ describe('rewriteGlobalFirePaths', () => {
     expect(result).toContain('.docs/testing-standards.md');
   });
 
-  it('injects the artifact-root override into run-execute script calls', () => {
-    const result = rewriteFireArtifactPaths('node scripts/update-phase.cjs {rootPath} {runId} test');
+  it('injects the worktree-invariant artifact-root override into run-execute script calls', () => {
+    const result = rewriteFireArtifactPaths(
+      'node scripts/update-phase.cjs {rootPath} {runId} test',
+      '/tmp/specsmd-fire'
+    );
 
-    expect(result).toBe(`${SCRIPT_ARTIFACT_ENV} node scripts/update-phase.cjs {rootPath} {runId} test`);
+    expect(result).toBe(
+      `${scriptArtifactEnv('/tmp/specsmd-fire')} node scripts/update-phase.cjs {rootPath} {runId} test`
+    );
+    expect(result).toContain('/tmp/specsmd-fire/resolve-artifact-root.cjs');
   });
 
   it('is idempotent for already-rewritten content', () => {

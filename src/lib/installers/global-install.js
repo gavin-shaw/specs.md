@@ -308,11 +308,20 @@ async function bundleMigrateLauncher(flowRoot) {
         'storage-migration.js',
         'migration-executor.js',
         'artifact-paths.js',
-        'global-tools.js'
+        'global-tools.js',
+        'main-worktree.js',
+        'resolve-artifact-root.cjs'
     ];
     for (const file of libFiles) {
         await fs.copy(path.join(__dirname, file), path.join(flowRoot, file));
     }
+
+    // The porcelain parser lives under dashboard/git; flatten it beside main-worktree.js
+    // so its bundled `require('./worktrees')` resolves.
+    await fs.copy(
+        path.join(__dirname, '..', 'dashboard', 'git', 'worktrees.js'),
+        path.join(flowRoot, 'worktrees.js')
+    );
 
     const nodeModules = path.join(flowRoot, 'node_modules');
     await fs.ensureDir(nodeModules);

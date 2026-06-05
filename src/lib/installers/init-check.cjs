@@ -7,9 +7,13 @@
 const fs = require('fs');
 const path = require('path');
 const { resolveArtifactPaths } = require('./artifact-paths');
+const { resolveMainWorktreeRoot } = require('./main-worktree');
 
 function statePaths(repoRoot, options = {}) {
-    const artifactPaths = resolveArtifactPaths(repoRoot, options);
+    // Key the global artifact root on the MAIN worktree so a linked worktree resolves to
+    // the same global state. resolveArtifactPaths stays pure; the worktree lookup is here.
+    const mainWorktreeRoot = resolveMainWorktreeRoot(repoRoot, options);
+    const artifactPaths = resolveArtifactPaths(mainWorktreeRoot, options);
     return {
         ...artifactPaths,
         repoRoot: path.resolve(repoRoot),

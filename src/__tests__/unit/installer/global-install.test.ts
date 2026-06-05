@@ -89,7 +89,10 @@ describe('installFlowGlobal', () => {
     expect(installedFlow).not.toContain('.specsmd/fire/');
     expect(installedFlow).toContain('~/.specs-fire/<project-name>/state.yaml');
     expect(installedFlow).toContain('.docs/');
-    expect(installedFlow).toContain('SPECSMD_ARTIFACT_ROOT="$HOME/.specs-fire/$(basename "{rootPath}")"');
+    const codexFlowRoot = join(tempHome, '.codex', 'skills', 'specsmd-fire');
+    expect(installedFlow).toContain(
+      `SPECSMD_ARTIFACT_ROOT="$(node "${codexFlowRoot}/resolve-artifact-root.cjs" "{rootPath}")"`
+    );
     expect(installedFlow).toContain(join(tempHome, '.codex', 'skills', 'specsmd-fire', 'memory-bank.yaml'));
   });
 
@@ -98,6 +101,12 @@ describe('installFlowGlobal', () => {
 
     expect(existsSync(join(tempHome, '.codex', 'skills', 'specsmd-fire', 'node_modules', 'yaml', 'package.json'))).toBe(true);
     expect(existsSync(join(tempHome, '.codex', 'skills', 'specsmd-fire', 'node_modules', 'js-yaml', 'package.json'))).toBe(true);
+
+    // Worktree-invariant resolver and its flat-bundled siblings must travel with the launcher.
+    const flowRoot = join(tempHome, '.codex', 'skills', 'specsmd-fire');
+    expect(existsSync(join(flowRoot, 'resolve-artifact-root.cjs'))).toBe(true);
+    expect(existsSync(join(flowRoot, 'main-worktree.js'))).toBe(true);
+    expect(existsSync(join(flowRoot, 'worktrees.js'))).toBe(true);
 
     const manifestPath = join(tempHome, '.codex', GLOBAL_MANIFEST_NAME);
     const manifest = yaml.load(readFileSync(manifestPath, 'utf8')) as {

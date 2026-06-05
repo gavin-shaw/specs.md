@@ -87,7 +87,10 @@ describe('global storage wiring', () => {
     expect(markdown).toContain('~/.specs-fire/<project-name>/state.yaml');
     expect(markdown).toContain('~/.specs-fire/<project-name>/intents/');
     expect(markdown).toContain('~/.specs-fire/<project-name>/runs/');
-    expect(markdown).toContain('SPECSMD_ARTIFACT_ROOT="$HOME/.specs-fire/$(basename "{rootPath}")"');
+    const codexFlowRoot = join(tempHome, '.codex', 'skills', 'specsmd-fire');
+    expect(markdown).toContain(
+      `SPECSMD_ARTIFACT_ROOT="$(node "${codexFlowRoot}/resolve-artifact-root.cjs" "{rootPath}")"`
+    );
   });
 
   it('run-execute scripts use SPECSMD_ARTIFACT_ROOT for state, intents, and runs', () => {
