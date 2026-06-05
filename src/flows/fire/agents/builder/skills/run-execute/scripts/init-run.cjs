@@ -21,7 +21,7 @@
 
 const fs = require('fs');
 const path = require('path');
-const yaml = require('yaml');
+const { fireDir, worktreeId, readShardState, writeShardState } = require('./shard-paths.cjs');
 
 // =============================================================================
 // Error Helper
@@ -40,12 +40,6 @@ function fireError(message, code, suggestion) {
 
 const VALID_MODES = ['autopilot', 'confirm', 'validate'];
 const VALID_SCOPES = ['single', 'batch', 'wide'];
-
-function fireDir(rootPath) {
-  return process.env.SPECSMD_ARTIFACT_ROOT
-    ? path.resolve(process.env.SPECSMD_ARTIFACT_ROOT)
-    : path.join(rootPath, '.specs-fire');
-}
 
 function validateRootPath(rootPath) {
   if (!rootPath || typeof rootPath !== 'string' || rootPath.trim() === '') {
@@ -124,55 +118,8 @@ function validateFireProject(rootPath) {
 }
 
 // =============================================================================
-// State Operations
+// Run ID Generation (CRITICAL - checks shard run history and file system)
 // =============================================================================
-
-function readState(statePath) {
-  try {
-    const content = fs.readFileSync(statePath, 'utf8');
-    const state = yaml.parse(content);
-    if (!state || typeof state !== 'object') {
-      throw fireError('State file is empty or invalid.', 'INIT_050', 'Check state.yaml format.');
-    }
-    return state;
-  } catch (err) {
-    if (err.code && err.code.startsWith('INIT_')) throw err;
-    throw fireError(
-      `Failed to read state file: ${err.message}`,
-      'INIT_051',
-      'Check file permissions and YAML syntax.'
-    );
-  }
-}
-
-function writeState(statePath, state) {
-  try {
-    fs.writeFileSync(statePath, yaml.stringify(state));
-  } catch (err) {
-    throw fireError(
-      `Failed to write state file: ${err.message}`,
-      'INIT_052',
-      'Check file permissions and disk space.'
-    );
-  }
-}
-
-// =============================================================================
-// Run ID Generation (CRITICAL - checks state and file system)
-// =============================================================================
-
-function sanitizeWorktreeToken(value) {
-  const normalized = String(value || '')
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '');
-  return normalized || 'workspace';
-}
-
-function resolveWorktreeToken(rootPath) {
-  const baseName = path.basename(path.resolve(String(rootPath || '')));
-  return sanitizeWorktreeToken(baseName);
-}
 
 function parseRunSequence(runId, worktreeToken) {
   if (typeof runId !== 'string' || runId.trim() === '') {
@@ -194,22 +141,22 @@ function parseRunSequence(runId, worktreeToken) {
   return null;
 }
 
-function generateRunId(rootPath, runsPath, state) {
+function generateRunId(rootPath, runsPath, shardState) {
   // Ensure runs directory exists
   if (!fs.existsSync(runsPath)) {
     fs.mkdirSync(runsPath, { recursive: true });
   }
 
-  const worktreeToken = resolveWorktreeToken(rootPath);
+  const worktreeToken = worktreeId(rootPath);
   let maxFromState = 0;
 
-  // Source 1: Get max from state.yaml run history (active + completed)
-  const stateRuns = state?.runs || {};
-  const stateRunRecords = [
-    ...(Array.isArray(stateRuns.active) ? stateRuns.active : []),
-    ...(Array.isArray(stateRuns.completed) ? stateRuns.completed : [])
+  // Source 1: Get max from this worktree's shard run history (active + completed)
+  const shardRuns = shardState?.runs || {};
+  const shardRunRecords = [
+    ...(Array.isArray(shardRuns.active) ? shardRuns.active : []),
+    ...(Array.isArray(shardRuns.completed) ? shardRuns.completed : [])
   ];
-  for (const run of stateRunRecords) {
+  for (const run of shardRunRecords) {
     const num = parseRunSequence(run?.id, worktreeToken);
     if (num != null && num > maxFromState) {
       maxFromState = num;
@@ -357,24 +304,13 @@ function initRun(rootPath, workItems, scope) {
   }
 
   // Validate FIRE project structure
-  const { statePath, runsPath } = validateFireProject(rootPath);
+  const { runsPath } = validateFireProject(rootPath);
 
-  // Read state
-  const state = readState(statePath);
+  // Read this worktree's shard (mutable run state lives here, not shared state.yaml)
+  const shardState = readShardState(rootPath);
 
-  // Initialize runs structure if needed
-  if (!state.runs) {
-    state.runs = { active: [], completed: [] };
-  }
-  if (!Array.isArray(state.runs.active)) {
-    state.runs.active = [];
-  }
-  if (!Array.isArray(state.runs.completed)) {
-    state.runs.completed = [];
-  }
-
-  // Generate run ID (checks both history AND file system)
-  const runId = generateRunId(rootPath, runsPath, state);
+  // Generate run ID (checks shard history AND file system)
+  const runId = generateRunId(rootPath, runsPath, shardState);
   const runPath = path.join(runsPath, runId);
 
   // Create run folder
@@ -397,8 +333,8 @@ function initRun(rootPath, workItems, scope) {
       : null,
   }));
 
-  // Add to active runs list (supports multiple parallel runs)
-  state.runs.active.push({
+  // Add to the shard's active runs list (per-worktree; no shared hot-write)
+  shardState.runs.active.push({
     id: runId,
     scope: detectedScope,
     work_items: stateWorkItems,
@@ -406,8 +342,8 @@ function initRun(rootPath, workItems, scope) {
     started: startTime,
   });
 
-  // Save state
-  writeState(statePath, state);
+  // Save the shard atomically
+  writeShardState(rootPath, shardState);
 
   // Return result
   return {

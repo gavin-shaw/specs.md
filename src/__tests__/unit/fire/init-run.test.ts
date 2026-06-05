@@ -23,8 +23,10 @@ import { tmpdir } from 'os';
 import * as yaml from 'yaml';
 
 // Import the module under test (CommonJS module)
-// eslint-disable-next-line @typescript-eslint/no-require-imports
+/* eslint-disable @typescript-eslint/no-require-imports */
 const { initRun } = require('../../../flows/fire/agents/builder/skills/run-execute/scripts/init-run.cjs');
+const { shardStatePath, worktreeId } = require('../../../flows/fire/agents/builder/skills/run-execute/scripts/shard-paths.cjs');
+/* eslint-enable @typescript-eslint/no-require-imports */
 
 // Helper types
 interface WorkItem {
@@ -75,17 +77,34 @@ describe('init-run', () => {
   });
 
   /**
-   * Helper to create a valid state.yaml file
+   * Under Option A, init writes run records to the per-worktree shard, not state.yaml.
+   * These helpers split a legacy {intents, runs} fixture so `runs` seeds the shard and
+   * planning seeds state.yaml, keeping the test bodies unchanged.
    */
-  function createStateFile(content: object): void {
-    writeFileSync(statePath, yaml.stringify(content), 'utf8');
+  function writeShardRuns(runs: unknown): void {
+    const shardPath = shardStatePath(testRoot);
+    mkdirSync(join(shardPath, '..'), { recursive: true });
+    writeFileSync(
+      shardPath,
+      yaml.stringify({ shard_version: 1, worktree_id: worktreeId(testRoot), worktree_path: testRoot, runs }),
+      'utf8'
+    );
   }
 
-  /**
-   * Helper to read state.yaml and parse it
-   */
-  function readStateFile(): object {
-    return yaml.parse(readFileSync(statePath, 'utf8'));
+  function createStateFile(content: Record<string, unknown>): void {
+    const { runs, ...planning } = content;
+    writeFileSync(statePath, yaml.stringify(planning), 'utf8');
+    if (runs) {
+      writeShardRuns(runs);
+    }
+  }
+
+  function readStateFile(): { runs?: { active?: Array<{ id: string }>; completed?: unknown[] } } {
+    const shardPath = shardStatePath(testRoot);
+    const shard = existsSync(shardPath)
+      ? yaml.parse(readFileSync(shardPath, 'utf8'))
+      : { runs: { active: [], completed: [] } };
+    return { runs: shard.runs };
   }
 
   /**
@@ -95,17 +114,8 @@ describe('init-run', () => {
     return [{ id, intent, mode }];
   }
 
-  function getWorktreeToken(value: string): string {
-    const baseName = value.split(/[/\\]/).filter(Boolean).pop() || '';
-    const normalized = baseName
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/^-+|-+$/g, '');
-    return normalized || 'workspace';
-  }
-
   function runIdFor(sequence: number): string {
-    return `run-${getWorktreeToken(testRoot)}-${String(sequence).padStart(3, '0')}`;
+    return `run-${worktreeId(testRoot)}-${String(sequence).padStart(3, '0')}`;
   }
 
   // ===========================================================================
@@ -211,14 +221,20 @@ describe('init-run', () => {
       expect(() => initRun(testRoot, singleWorkItem())).toThrow();
     });
 
-    it('should throw when state.yaml contains invalid YAML', () => {
+    // Under Option A, init writes run records to the shard and never parses the planning
+    // state.yaml content, so a present-but-unparseable planning file does not block a run.
+    it('tolerates invalid planning state.yaml content (run records go to the shard)', () => {
       writeFileSync(statePath, 'invalid: yaml: content: [', 'utf8');
-      expect(() => initRun(testRoot, singleWorkItem())).toThrow();
+      const result: InitRunResult = initRun(testRoot, singleWorkItem());
+      expect(result.runId).toBe(runIdFor(1));
+      expect(readStateFile().runs?.active).toHaveLength(1);
     });
 
-    it('should throw when state.yaml is empty', () => {
+    it('tolerates an empty planning state.yaml (run records go to the shard)', () => {
       writeFileSync(statePath, '', 'utf8');
-      expect(() => initRun(testRoot, singleWorkItem())).toThrow();
+      const result: InitRunResult = initRun(testRoot, singleWorkItem());
+      expect(result.runId).toBe(runIdFor(1));
+      expect(readStateFile().runs?.active).toHaveLength(1);
     });
   });
 

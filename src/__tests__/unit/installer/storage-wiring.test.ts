@@ -19,6 +19,7 @@ const { initRun, fireDir: initFireDir } = require('../../../flows/fire/agents/bu
 const { completeCurrentItem, fireDir: completeFireDir } = require('../../../flows/fire/agents/builder/skills/run-execute/scripts/complete-run.cjs');
 const { updateCheckpoint, fireDir: checkpointFireDir } = require('../../../flows/fire/agents/builder/skills/run-execute/scripts/update-checkpoint.cjs');
 const { updatePhase, fireDir: phaseFireDir } = require('../../../flows/fire/agents/builder/skills/run-execute/scripts/update-phase.cjs');
+const { shardStatePath } = require('../../../flows/fire/agents/builder/skills/run-execute/scripts/shard-paths.cjs');
 /* eslint-enable @typescript-eslint/no-require-imports */
 
 function collectMarkdown(root: string): string {
@@ -118,7 +119,9 @@ describe('global storage wiring', () => {
     expect(initResult.runPath.startsWith(join(artifactRoot, 'runs'))).toBe(true);
     expect(existsSync(join(repoRoot, '.specs-fire'))).toBe(false);
     expect(completeResult.completedItem).toBe('WI-001');
-    expect(readState(artifactRoot).runs.active[0].work_items[0].status).toBe('completed');
+    // Run state lives in the per-worktree shard under the artifact root, not state.yaml.
+    const shard = yaml.parse(readFileSync(shardStatePath(repoRoot), 'utf8'));
+    expect(shard.runs.active[0].work_items[0].status).toBe('completed');
   });
 
   it('run-execute scripts default to repo-local .specs-fire when no override is set', () => {

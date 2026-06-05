@@ -10,8 +10,10 @@ import { join } from 'path';
 import { tmpdir } from 'os';
 import * as yaml from 'yaml';
 
-// eslint-disable-next-line @typescript-eslint/no-require-imports
+/* eslint-disable @typescript-eslint/no-require-imports */
 const { updateCheckpoint } = require('../../../flows/fire/agents/builder/skills/run-execute/scripts/update-checkpoint.cjs');
+const { shardStatePath, worktreeId } = require('../../../flows/fire/agents/builder/skills/run-execute/scripts/shard-paths.cjs');
+/* eslint-enable @typescript-eslint/no-require-imports */
 
 describe('update-checkpoint', () => {
   let testRoot: string;
@@ -22,8 +24,15 @@ describe('update-checkpoint', () => {
     statePath = join(testRoot, '.specs-fire', 'state.yaml');
     mkdirSync(join(testRoot, '.specs-fire', 'runs', 'run-001'), { recursive: true });
 
-    writeFileSync(statePath, yaml.stringify({
-      intents: [],
+    // state.yaml holds planning only; mutable run state lives in the per-worktree shard.
+    writeFileSync(statePath, yaml.stringify({ intents: [] }), 'utf8');
+
+    const shardPath = shardStatePath(testRoot);
+    mkdirSync(join(shardPath, '..'), { recursive: true });
+    writeFileSync(shardPath, yaml.stringify({
+      shard_version: 1,
+      worktree_id: worktreeId(testRoot),
+      worktree_path: testRoot,
       runs: {
         active: [
           {
@@ -60,7 +69,7 @@ describe('update-checkpoint', () => {
   });
 
   function readState() {
-    return yaml.parse(readFileSync(statePath, 'utf8'));
+    return yaml.parse(readFileSync(shardStatePath(testRoot), 'utf8'));
   }
 
   it('updates current work item checkpoint state', () => {

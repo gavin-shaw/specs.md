@@ -15,7 +15,7 @@
 
 const fs = require('fs');
 const path = require('path');
-const yaml = require('yaml');
+const { fireDir, readShardState, writeShardState } = require('./shard-paths.cjs');
 
 const VALID_STATES = ['awaiting_approval', 'approved', 'none', 'not_required'];
 
@@ -81,12 +81,6 @@ function validateInputs(rootPath, runId, checkpointState) {
   return normalizedState;
 }
 
-function fireDir(rootPath) {
-  return process.env.SPECSMD_ARTIFACT_ROOT
-    ? path.resolve(process.env.SPECSMD_ARTIFACT_ROOT)
-    : path.join(rootPath, '.specs-fire');
-}
-
 function validateFireProject(rootPath) {
   const fireRoot = fireDir(rootPath);
   const statePath = path.join(fireRoot, 'state.yaml');
@@ -110,42 +104,12 @@ function validateFireProject(rootPath) {
   return { statePath };
 }
 
-function readState(statePath) {
-  try {
-    const content = fs.readFileSync(statePath, 'utf8');
-    const state = yaml.parse(content);
-    if (!state || typeof state !== 'object') {
-      throw fireError('State file is empty or invalid.', 'CHECKPOINT_020', 'Check state.yaml format.');
-    }
-    return state;
-  } catch (err) {
-    if (err.code && err.code.startsWith('CHECKPOINT_')) throw err;
-    throw fireError(
-      `Failed to read state file: ${err.message}`,
-      'CHECKPOINT_021',
-      'Check file permissions and YAML syntax.'
-    );
-  }
-}
-
-function writeState(statePath, state) {
-  try {
-    fs.writeFileSync(statePath, yaml.stringify(state));
-  } catch (err) {
-    throw fireError(
-      `Failed to write state file: ${err.message}`,
-      'CHECKPOINT_022',
-      'Check file permissions and disk space.'
-    );
-  }
-}
-
 function updateCheckpoint(rootPath, runId, checkpointState, options = {}) {
   const normalizedState = validateInputs(rootPath, runId, checkpointState);
-  const { statePath } = validateFireProject(rootPath);
-  const state = readState(statePath);
+  validateFireProject(rootPath);
+  const shardState = readShardState(rootPath);
 
-  const activeRuns = state.runs?.active || [];
+  const activeRuns = shardState.runs?.active || [];
   const runIndex = activeRuns.findIndex((run) => run.id === runId);
   if (runIndex === -1) {
     throw fireError(
@@ -190,8 +154,8 @@ function updateCheckpoint(rootPath, runId, checkpointState, options = {}) {
   }
 
   activeRun.work_items = workItems;
-  state.runs.active[runIndex] = activeRun;
-  writeState(statePath, state);
+  shardState.runs.active[runIndex] = activeRun;
+  writeShardState(rootPath, shardState);
 
   return {
     success: true,

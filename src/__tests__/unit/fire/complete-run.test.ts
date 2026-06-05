@@ -24,8 +24,10 @@ import { tmpdir } from 'os';
 import * as yaml from 'yaml';
 
 // Import the module under test (CommonJS module)
-// eslint-disable-next-line @typescript-eslint/no-require-imports
+/* eslint-disable @typescript-eslint/no-require-imports */
 const { completeRun, completeCurrentItem } = require('../../../flows/fire/agents/builder/skills/run-execute/scripts/complete-run.cjs');
+const { shardStatePath, worktreeId } = require('../../../flows/fire/agents/builder/skills/run-execute/scripts/shard-paths.cjs');
+/* eslint-enable @typescript-eslint/no-require-imports */
 
 // Helper types
 interface WorkItem {
@@ -91,17 +93,54 @@ describe('complete-run', () => {
   });
 
   /**
-   * Helper to create a valid state.yaml file
+   * Under Option A, mutable run records live in the per-worktree shard, while state.yaml
+   * holds planning only. These helpers split a legacy {intents, runs} fixture so `runs`
+   * seeds the shard and everything else seeds state.yaml — keeping test bodies unchanged.
    */
-  function createStateFile(content: object): void {
-    writeFileSync(statePath, yaml.stringify(content), 'utf8');
+  function writeShardRuns(runs: unknown): void {
+    const shardPath = shardStatePath(testRoot);
+    mkdirSync(join(shardPath, '..'), { recursive: true });
+    writeFileSync(
+      shardPath,
+      yaml.stringify({ shard_version: 1, worktree_id: worktreeId(testRoot), worktree_path: testRoot, runs }),
+      'utf8'
+    );
+  }
+
+  function createStateFile(content: Record<string, unknown>): void {
+    const { runs, ...planning } = content;
+    writeFileSync(statePath, yaml.stringify(planning), 'utf8');
+    if (runs) {
+      writeShardRuns(runs);
+    }
   }
 
   /**
-   * Helper to read state.yaml and parse it
+   * Read the merged view: runs from the shard, planning from state.yaml.
    */
-  function readStateFile(): object {
-    return yaml.parse(readFileSync(statePath, 'utf8'));
+  function readStateFile(): { runs?: { active?: unknown[]; completed?: unknown[] }; intents?: unknown[] } {
+    const planning = yaml.parse(readFileSync(statePath, 'utf8')) || {};
+    const shardPath = shardStatePath(testRoot);
+    const shard = existsSync(shardPath)
+      ? yaml.parse(readFileSync(shardPath, 'utf8'))
+      : { runs: { active: [], completed: [] } };
+    return { ...planning, runs: shard.runs };
+  }
+
+  /** Seed a per-WI markdown file (the durable runtime status record under Option A). */
+  function createWorkItemMd(intentId: string, wiId: string, status = 'in_progress'): void {
+    const dir = join(specsFireDir, 'intents', intentId, 'work-items');
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(
+      join(dir, `${wiId}.md`),
+      `---\nid: ${wiId}\nintent: ${intentId}\nstatus: ${status}\n---\n\n# ${wiId}\n`,
+      'utf8'
+    );
+  }
+
+  function readWorkItemMd(intentId: string, wiId: string): { status?: string; run_id?: string } {
+    const content = readFileSync(join(specsFireDir, 'intents', intentId, 'work-items', `${wiId}.md`), 'utf8');
+    return yaml.parse((content.match(/^---\n([\s\S]*?)\n---/) as RegExpMatchArray)[1]);
   }
 
   /**
@@ -395,16 +434,18 @@ ${currentItem.id} (${currentItem.mode})
       expect(state.runs.completed[0].work_items[0].id).toBe('WI-001');
     });
 
-    it('should update work item status to completed', () => {
+    it('records completed runtime status in the per-WI markdown, not planning state.yaml', () => {
+      createWorkItemMd('INT-001', 'WI-001', 'in_progress');
+
       completeRun(testRoot, 'run-001', validParams());
 
-      const state = readStateFile() as {
-        intents: Array<{ work_items: Array<{ id: string; status: string; run_id?: string }> }>;
-      };
-      const workItem = state.intents[0].work_items[0];
+      const wi = readWorkItemMd('INT-001', 'WI-001');
+      expect(wi.status).toBe('completed');
+      expect(wi.run_id).toBe('run-001');
 
-      expect(workItem.status).toBe('completed');
-      expect(workItem.run_id).toBe('run-001');
+      // Option A: planning state.yaml intents are not mutated with runtime status.
+      const state = readStateFile() as { intents: Array<{ work_items: Array<{ status: string }> }> };
+      expect(state.intents[0].work_items[0].status).toBe('in_progress');
     });
 
     it('should update run.md status to completed', () => {
@@ -606,24 +647,22 @@ ${currentItem.id} (${currentItem.mode})
       expect(state.runs.completed[0].work_items.map(w => w.id)).toEqual(['WI-001', 'WI-002', 'WI-003']);
     });
 
-    it('should update all work items status in intents', () => {
+    it('records completed runtime status for every work item in its markdown', () => {
+      createWorkItemMd('INT-001', 'WI-001', 'completed');
+      createWorkItemMd('INT-001', 'WI-002', 'in_progress');
+      createWorkItemMd('INT-002', 'WI-003', 'pending');
+
       completeRun(testRoot, 'run-001', validParams());
 
-      const state = readStateFile() as {
-        intents: Array<{ id: string; work_items: Array<{ id: string; status: string; run_id?: string }> }>;
-      };
+      for (const [intent, wi] of [['INT-001', 'WI-001'], ['INT-001', 'WI-002'], ['INT-002', 'WI-003']] as const) {
+        const md = readWorkItemMd(intent, wi);
+        expect(md.status).toBe('completed');
+        expect(md.run_id).toBe('run-001');
+      }
 
-      // Check INT-001 work items
-      const int001 = state.intents.find(i => i.id === 'INT-001');
-      expect(int001?.work_items[0].status).toBe('completed');
-      expect(int001?.work_items[0].run_id).toBe('run-001');
-      expect(int001?.work_items[1].status).toBe('completed');
-      expect(int001?.work_items[1].run_id).toBe('run-001');
-
-      // Check INT-002 work items
-      const int002 = state.intents.find(i => i.id === 'INT-002');
-      expect(int002?.work_items[0].status).toBe('completed');
-      expect(int002?.work_items[0].run_id).toBe('run-001');
+      // Option A: planning state.yaml intents are not mutated with runtime status.
+      const state = readStateFile() as { intents: Array<{ id: string; work_items: Array<{ status: string }> }> };
+      expect(state.intents.find(i => i.id === 'INT-002')?.work_items[0].status).toBe('pending');
     });
   });
 

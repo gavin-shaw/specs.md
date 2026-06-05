@@ -17,7 +17,7 @@
 
 const fs = require('fs');
 const path = require('path');
-const yaml = require('yaml');
+const { fireDir, readShardState, writeShardState } = require('./shard-paths.cjs');
 
 // =============================================================================
 // Constants
@@ -66,12 +66,6 @@ function validateInputs(rootPath, runId, phase) {
   }
 }
 
-function fireDir(rootPath) {
-  return process.env.SPECSMD_ARTIFACT_ROOT
-    ? path.resolve(process.env.SPECSMD_ARTIFACT_ROOT)
-    : path.join(rootPath, '.specs-fire');
-}
-
 function validateFireProject(rootPath, runId) {
   const fireRoot = fireDir(rootPath);
   const statePath = path.join(fireRoot, 'state.yaml');
@@ -96,40 +90,6 @@ function validateFireProject(rootPath, runId) {
 }
 
 // =============================================================================
-// State Operations
-// =============================================================================
-
-function readState(statePath) {
-  try {
-    const content = fs.readFileSync(statePath, 'utf8');
-    const state = yaml.parse(content);
-    if (!state || typeof state !== 'object') {
-      throw fireError('State file is empty or invalid.', 'PHASE_020', 'Check state.yaml format.');
-    }
-    return state;
-  } catch (err) {
-    if (err.code && err.code.startsWith('PHASE_')) throw err;
-    throw fireError(
-      `Failed to read state file: ${err.message}`,
-      'PHASE_021',
-      'Check file permissions and YAML syntax.'
-    );
-  }
-}
-
-function writeState(statePath, state) {
-  try {
-    fs.writeFileSync(statePath, yaml.stringify(state));
-  } catch (err) {
-    throw fireError(
-      `Failed to write state file: ${err.message}`,
-      'PHASE_022',
-      'Check file permissions and disk space.'
-    );
-  }
-}
-
-// =============================================================================
 // Main Function
 // =============================================================================
 
@@ -143,11 +103,11 @@ function writeState(statePath, state) {
  */
 function updatePhase(rootPath, runId, phase) {
   validateInputs(rootPath, runId, phase);
-  const { statePath } = validateFireProject(rootPath, runId);
-  const state = readState(statePath);
+  validateFireProject(rootPath, runId);
+  const shardState = readShardState(rootPath);
 
-  // Find run in active runs list
-  const activeRuns = state.runs?.active || [];
+  // Find run in the shard's active runs list
+  const activeRuns = shardState.runs?.active || [];
   const runIndex = activeRuns.findIndex(r => r.id === runId);
 
   if (runIndex === -1) {
@@ -201,10 +161,10 @@ function updatePhase(rootPath, runId, phase) {
     );
   }
 
-  // Update state
+  // Update the shard
   activeRun.work_items = workItems;
-  state.runs.active[runIndex] = activeRun;
-  writeState(statePath, state);
+  shardState.runs.active[runIndex] = activeRun;
+  writeShardState(rootPath, shardState);
 
   return {
     success: true,

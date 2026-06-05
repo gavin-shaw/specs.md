@@ -27,6 +27,7 @@
 const fs = require('fs');
 const path = require('path');
 const yaml = require('yaml');
+const { fireDir, readShardState, writeShardState } = require('./shard-paths.cjs');
 
 // =============================================================================
 // Error Helper
@@ -59,12 +60,6 @@ function validateInputs(rootPath, runId) {
       'Ensure the path exists and is accessible.'
     );
   }
-}
-
-function fireDir(rootPath) {
-  return process.env.SPECSMD_ARTIFACT_ROOT
-    ? path.resolve(process.env.SPECSMD_ARTIFACT_ROOT)
-    : path.join(rootPath, '.specs-fire');
 }
 
 function validateFireProject(rootPath, runId) {
@@ -179,29 +174,45 @@ function updateWorkItemMarkdown(rootPath, intentId, workItemId, status, runId, c
 }
 
 /**
- * Update intent brief.md frontmatter based on work item statuses.
+ * Update intent brief.md frontmatter, deriving the rollup status from the per-WI
+ * markdown files (the durable runtime record under Option A) rather than from the
+ * shared state.yaml, whose intents[] carries planning status only.
  */
-function updateIntentMarkdown(rootPath, intentId, state) {
-  const filePath = path.join(fireDir(rootPath), 'intents', intentId, 'brief.md');
+function updateIntentMarkdown(rootPath, intentId) {
+  const intentDir = path.join(fireDir(rootPath), 'intents', intentId);
+  const filePath = path.join(intentDir, 'brief.md');
+  const workItemsDir = path.join(intentDir, 'work-items');
 
-  if (!fs.existsSync(filePath)) {
+  if (!fs.existsSync(filePath) || !fs.existsSync(workItemsDir)) {
     return false;
   }
 
   try {
-    // Determine intent status from its work items
-    const intent = state.intents?.find(i => i.id === intentId);
-    if (!intent || !Array.isArray(intent.work_items)) {
+    // Collect each work item's runtime status from its markdown frontmatter.
+    // Design docs (type: design-doc) are not work items and are excluded.
+    const statuses = [];
+    for (const entry of fs.readdirSync(workItemsDir)) {
+      if (!entry.endsWith('.md')) {
+        continue;
+      }
+      const parsedItem = parseFrontmatter(fs.readFileSync(path.join(workItemsDir, entry), 'utf8'));
+      const fm = parsedItem && parsedItem.frontmatter;
+      if (fm && fm.id && fm.type !== 'design-doc') {
+        statuses.push(fm.status || 'pending');
+      }
+    }
+
+    if (statuses.length === 0) {
       return false;
     }
 
-    const allCompleted = intent.work_items.every(wi => wi.status === 'completed');
-    const anyInProgress = intent.work_items.some(wi => wi.status === 'in_progress');
+    const allCompleted = statuses.every(s => s === 'completed');
+    const anyActive = statuses.some(s => s === 'in_progress' || s === 'completed');
 
     let newStatus = 'pending';
     if (allCompleted) {
       newStatus = 'completed';
-    } else if (anyInProgress || intent.work_items.some(wi => wi.status === 'completed')) {
+    } else if (anyActive) {
       newStatus = 'in_progress';
     }
 
@@ -228,40 +239,6 @@ function updateIntentMarkdown(rootPath, intentId, state) {
   } catch (err) {
     console.error(`Warning: Could not update intent markdown ${filePath}: ${err.message}`);
     return false;
-  }
-}
-
-// =============================================================================
-// State Operations
-// =============================================================================
-
-function readState(statePath) {
-  try {
-    const content = fs.readFileSync(statePath, 'utf8');
-    const state = yaml.parse(content);
-    if (!state || typeof state !== 'object') {
-      throw fireError('State file is empty or invalid.', 'COMPLETE_020', 'Check state.yaml format.');
-    }
-    return state;
-  } catch (err) {
-    if (err.code && err.code.startsWith('COMPLETE_')) throw err;
-    throw fireError(
-      `Failed to read state file: ${err.message}`,
-      'COMPLETE_021',
-      'Check file permissions and YAML syntax.'
-    );
-  }
-}
-
-function writeState(statePath, state) {
-  try {
-    fs.writeFileSync(statePath, yaml.stringify(state));
-  } catch (err) {
-    throw fireError(
-      `Failed to write state file: ${err.message}`,
-      'COMPLETE_022',
-      'Check file permissions and disk space.'
-    );
   }
 }
 
@@ -412,11 +389,11 @@ function completeCurrentItem(rootPath, runId, params = {}, options = {}) {
   const force = options.force || false;
 
   validateInputs(rootPath, runId);
-  const { statePath, runLogPath } = validateFireProject(rootPath, runId);
-  const state = readState(statePath);
+  const { runLogPath } = validateFireProject(rootPath, runId);
+  const shardState = readShardState(rootPath);
 
-  // Find run in active runs list
-  const activeRuns = state.runs?.active || [];
+  // Find run in the shard's active runs list
+  const activeRuns = shardState.runs?.active || [];
   const runIndex = activeRuns.findIndex(r => r.id === runId);
 
   if (runIndex === -1) {
@@ -482,15 +459,15 @@ function completeCurrentItem(rootPath, runId, params = {}, options = {}) {
     }
   }
 
-  // Update active run in list
+  // Update active run in the shard
   activeRun.work_items = workItems;
   activeRun.current_item = nextItem ? nextItem.id : null;
-  state.runs.active[runIndex] = activeRun;
+  shardState.runs.active[runIndex] = activeRun;
 
   // Update run log
   updateRunLog(runLogPath, activeRun, completionParams, completedTime, false);
 
-  // Sync markdown frontmatter for completed work item
+  // Sync markdown frontmatter for completed work item (durable runtime status)
   const completedWorkItem = workItems.find(wi => wi.id === currentItemId);
   if (completedWorkItem) {
     updateWorkItemMarkdown(
@@ -501,8 +478,6 @@ function completeCurrentItem(rootPath, runId, params = {}, options = {}) {
       runId,
       completedTime
     );
-    // Update intent status based on its work items
-    updateIntentMarkdown(rootPath, completedWorkItem.intent, state);
   }
 
   // Also update next item's markdown to in_progress
@@ -510,8 +485,13 @@ function completeCurrentItem(rootPath, runId, params = {}, options = {}) {
     updateWorkItemMarkdown(rootPath, nextItem.intent, nextItem.id, 'in_progress', null, null);
   }
 
-  // Save state
-  writeState(statePath, state);
+  // Roll up intent status from the per-WI markdown after both writes
+  if (completedWorkItem) {
+    updateIntentMarkdown(rootPath, completedWorkItem.intent);
+  }
+
+  // Save the shard atomically
+  writeShardState(rootPath, shardState);
 
   return {
     success: true,
@@ -539,22 +519,11 @@ function completeRun(rootPath, runId, params = {}, options = {}) {
   const force = options.force || false;
 
   validateInputs(rootPath, runId);
-  const { statePath, runLogPath } = validateFireProject(rootPath, runId);
-  const state = readState(statePath);
+  const { runLogPath } = validateFireProject(rootPath, runId);
+  const shardState = readShardState(rootPath);
 
-  // Initialize runs structure if needed
-  if (!state.runs) {
-    state.runs = { active: [], completed: [] };
-  }
-  if (!Array.isArray(state.runs.active)) {
-    state.runs.active = [];
-  }
-  if (!Array.isArray(state.runs.completed)) {
-    state.runs.completed = [];
-  }
-
-  // Find run in active runs list
-  const runIndex = state.runs.active.findIndex(r => r.id === runId);
+  // Find run in the shard's active runs list
+  const runIndex = shardState.runs.active.findIndex(r => r.id === runId);
 
   if (runIndex === -1) {
     throw fireError(
@@ -564,7 +533,7 @@ function completeRun(rootPath, runId, params = {}, options = {}) {
     );
   }
 
-  const activeRun = state.runs.active[runIndex];
+  const activeRun = shardState.runs.active[runIndex];
   const completedTime = new Date().toISOString();
   const workItems = activeRun.work_items || [];
   const scope = activeRun.scope || 'single';
@@ -618,38 +587,22 @@ function completeRun(rootPath, runId, params = {}, options = {}) {
   };
 
   // Check for duplicate (idempotency)
-  const alreadyRecorded = state.runs.completed.some(r => r.id === runId);
+  const alreadyRecorded = shardState.runs.completed.some(r => r.id === runId);
 
-  // Update work item status in intents (state.yaml)
-  const affectedIntents = new Set();
-  if (Array.isArray(state.intents)) {
-    for (const workItem of workItems) {
-      for (const intent of state.intents) {
-        if (intent.id === workItem.intent && Array.isArray(intent.work_items)) {
-          for (const wi of intent.work_items) {
-            if (wi.id === workItem.id) {
-              wi.status = 'completed';
-              wi.run_id = runId;
-              wi.completed_at = completedTime;
-              affectedIntents.add(intent.id);
-              break;
-            }
-          }
-        }
-      }
-    }
-  }
+  // Affected intents come from the run's work items; planning state.yaml is not mutated
+  // with runtime status under Option A.
+  const affectedIntents = new Set(workItems.map(wi => wi.intent));
 
-  // Remove from active runs and add to completed
-  state.runs.active.splice(runIndex, 1);
+  // Remove from the shard's active runs and add to completed
+  shardState.runs.active.splice(runIndex, 1);
   if (!alreadyRecorded) {
-    state.runs.completed.push(completedRun);
+    shardState.runs.completed.push(completedRun);
   }
 
-  // Save state first (so markdown sync has correct state)
-  writeState(statePath, state);
+  // Save the shard atomically (so markdown rollup reads the right state)
+  writeShardState(rootPath, shardState);
 
-  // Sync markdown frontmatter for all completed work items
+  // Sync markdown frontmatter for all completed work items (durable runtime status)
   for (const workItem of workItems) {
     updateWorkItemMarkdown(
       rootPath,
@@ -661,9 +614,9 @@ function completeRun(rootPath, runId, params = {}, options = {}) {
     );
   }
 
-  // Update intent markdown for all affected intents
+  // Roll up intent markdown for all affected intents from the per-WI markdown
   for (const intentId of affectedIntents) {
-    updateIntentMarkdown(rootPath, intentId, state);
+    updateIntentMarkdown(rootPath, intentId);
   }
 
   return {
