@@ -107,6 +107,7 @@ describe('installFlowGlobal', () => {
     expect(existsSync(join(flowRoot, 'resolve-artifact-root.cjs'))).toBe(true);
     expect(existsSync(join(flowRoot, 'main-worktree.js'))).toBe(true);
     expect(existsSync(join(flowRoot, 'worktrees.js'))).toBe(true);
+    expect(existsSync(join(flowRoot, 'base-worktree-guard.js'))).toBe(true);
 
     const manifestPath = join(tempHome, '.codex', GLOBAL_MANIFEST_NAME);
     const manifest = yaml.load(readFileSync(manifestPath, 'utf8')) as {

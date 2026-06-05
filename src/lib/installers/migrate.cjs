@@ -12,6 +12,7 @@
 const path = require('path');
 const { buildMigrationPlan } = require('./storage-migration');
 const { executeMigration } = require('./migration-executor');
+const { guardBaseWorktree } = require('./base-worktree-guard');
 
 function parseArgs(argv) {
     const args = (argv || process.argv).slice(2);
@@ -51,6 +52,18 @@ async function run(argv, options = {}) {
     if (mode !== 'check' && mode !== 'yes') {
         const message = 'Usage: migrate.cjs --check|--yes [cwd]';
         return { status: 'usage_error', message };
+    }
+
+    // Refuse before any plan is built or file is moved when invoked from a linked worktree.
+    const guard = guardBaseWorktree(cwd, options);
+    if (guard.blocked) {
+        return {
+            status: 'blocked',
+            reason: 'linked_worktree',
+            message: guard.message,
+            baseWorktreePath: guard.baseWorktreePath,
+            repoRoot: cwd
+        };
     }
 
     const plan = await buildMigrationPlan(cwd, options);

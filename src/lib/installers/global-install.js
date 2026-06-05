@@ -310,7 +310,8 @@ async function bundleMigrateLauncher(flowRoot) {
         'artifact-paths.js',
         'global-tools.js',
         'main-worktree.js',
-        'resolve-artifact-root.cjs'
+        'resolve-artifact-root.cjs',
+        'base-worktree-guard.js'
     ];
     for (const file of libFiles) {
         await fs.copy(path.join(__dirname, file), path.join(flowRoot, file));
