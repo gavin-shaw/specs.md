@@ -104,6 +104,10 @@ Break an intent into discrete, executable work items.
     <mandate critical="true">
       EVERY work item MUST include an acceptance criterion asserting the implemented code conforms to the codebase's canonical pattern(s) for this work. Make it machine-verifiable: name the specific pattern and its reference example from the "Canonical Patterns" section, e.g. "New handler follows the existing controller pattern in `src/controllers/UserController.ts:20` — same structure, naming, and error handling." Do NOT write a vague "follows best practices" / "uses good patterns" criterion — that is unverifiable and forbidden.
     </mandate>
+
+    <mandate>
+      Acceptance criteria stay machine-verifiable: assert code / file / artifact state, never a human-only social action (PR merged, thread resolved, stakeholder sign-off). A reporting AC MAY ask for commit or push evidence — e.g. `git log` showing the per-work-item commit, or `git status` / `git diff --stat` on the run's branch — because the Builder commits per work item and pushes the intent branch on run completion. Such commit/push ACs are valid; only human-only actions remain forbidden.
+    </mandate>
   </step>
 
   <step n="5" title="Validate Dependencies">

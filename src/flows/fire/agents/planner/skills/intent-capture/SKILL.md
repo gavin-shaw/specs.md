@@ -22,6 +22,7 @@ Capture user intent through guided conversation.
   <mandate>Capture the "what" and "why" — leave the "how" for decomposition</mandate>
   <mandate>Let user describe freely — don't interrupt</mandate>
   <mandate>BROWNFIELD PATTERN DISCIPLINE — Default to brownfield. Before saving the brief, scan the codebase for the canonical patterns relevant to this intent and record them under the brief's "Relevant Existing Patterns" so downstream work items inherit them. Only skip if the project is demonstrably greenfield (no existing source beyond scaffolding); if it cannot be determined, treat it as brownfield.</mandate>
+  <mandate>BUILDER COMMITS ARE EXPECTED — Per the repo's FIRE Branch & Commit Policy (the project's own `.claude/CLAUDE.md`), the Builder commits per work item and pushes the intent branch on run completion. Treat this as expected, never as a violation; the intent declares one branch and the Builder verifies it with `git branch --show-current`.</mandate>
 </llm>
 
 <flow>
