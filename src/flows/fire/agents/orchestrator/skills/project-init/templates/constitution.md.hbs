@@ -8,6 +8,7 @@
 - **Commit Style**: {{#if commit_style}}{{commit_style}}{{else}}Conventional commits (feat:, fix:, chore:, docs:, refactor:, test:){{/if}}
 - **Branch Strategy**: {{#if branch_strategy}}{{branch_strategy}}{{else}}Feature branches merged via pull request{{/if}}
 - **Main Branch**: {{#if main_branch}}{{main_branch}}{{else}}main{{/if}} is always deployable
+- **Agent Commit Authority**: AI agents (including the FIRE Builder) MAY commit per completed work item and push the intent's feature branch on run completion. Before any commit or push they MUST verify the branch with `git branch --show-current`, and MUST NOT commit or push to `{{#if main_branch}}{{main_branch}}{{else}}main{{/if}}`/`master` or a shared integration branch. Opening PRs, merging, and force-pushing remain withheld unless the user explicitly instructs it in the latest message.
 
 ## Code Review
 
