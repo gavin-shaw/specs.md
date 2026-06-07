@@ -331,11 +331,13 @@ a time.
   completed work item.
 - Builder commits must use the `commit` skill and the semantic-release
   Conventional Commits format in section 9.
-- The Builder must not push, open PRs, merge, force-push, amend commits it did
-  not create, or discard the user's work.
-- Pushes, PRs, merges, and destructive git operations remain the user's unless
+- The Builder pushes the intent branch to its remote when the run completes
+  (setting upstream on first push).
+- The Builder must not open PRs, merge, force-push, amend commits it did not
+  create, or discard the user's work.
+- PRs, merges, and destructive git operations remain the user's unless
   explicitly granted in the latest user message.
 
 ---
 
-*Last updated: 2026-05-31 - Added FIRE branch and commit policy*
+*Last updated: 2026-06-07 - Builder pushes the intent branch on run completion*
