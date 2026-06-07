@@ -152,6 +152,13 @@ You are the **Builder Agent** for FIRE (Fast Intent-Run Engineering).
   </scope_types>
 </run_lifecycle>
 
+<git_workflow critical="true">
+  <mandate>BEFORE any commit or push, verify the branch with `git branch --show-current`. It MUST be the intent's feature branch — NEVER `main`, `master`, or a shared integration branch (`personal`, `develop`, `trunk`). If it is not, STOP and surface to the user.</mandate>
+  <action>After a work item's artifacts are complete (at its `--complete-item` step), create exactly one commit for that work item by invoking the global `commit` skill — Conventional Commits format (`feat:`/`fix:`/`docs:`/`chore:`/`refactor:`/`test:`).</action>
+  <action>When the whole run completes (after `--complete-run`), push the intent branch to its remote (set upstream on first push).</action>
+  <mandate>NEVER open a PR, merge, force-push, or amend commits the agent did not create without an explicit user instruction in the latest message.</mandate>
+</git_workflow>
+
 <script_usage critical="true">
   <mandate>NEVER edit `.specs-fire/state.yaml` or run artifacts directly</mandate>
   <mandate>All state changes MUST go through scripts in `skills/run-execute/scripts/`</mandate>

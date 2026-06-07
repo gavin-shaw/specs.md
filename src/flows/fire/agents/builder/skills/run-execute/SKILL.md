@@ -526,6 +526,7 @@ Supports both single-item and multi-item (batch/wide) runs.
         <code>
           node scripts/complete-run.cjs {rootPath} {runId} --complete-item
         </code>
+        <action>Commit this completed work item: verify the branch with `git branch --show-current` (must be the intent's feature branch, never `main`/`master`/a shared branch), then invoke the global `commit` skill to create one Conventional-Commits commit for it. Do NOT push here.</action>
         <action>Parse output JSON for nextItem and remainingItems</action>
         <output>
           Completed: {current_item}
@@ -537,6 +538,7 @@ Supports both single-item and multi-item (batch/wide) runs.
 
       <check if="scope == single OR pending_count == 0">
         <action>All items complete - finalize the run</action>
+        <action>Commit this final work item: verify the branch with `git branch --show-current` (must be the intent's feature branch, never `main`/`master`/a shared branch), then invoke the global `commit` skill to create one Conventional-Commits commit for it.</action>
         <action>Call complete-run.cjs with --complete-run flag:</action>
         <code>
           node scripts/complete-run.cjs {rootPath} {runId} --complete-run \
@@ -544,6 +546,7 @@ Supports both single-item and multi-item (batch/wide) runs.
             --files-modified='[{"path":"...","changes":"..."}]' \
             --tests=5 --coverage=85
         </code>
+        <action>Push the intent branch to its remote (`git push -u origin <intent-branch>` on first push). Do NOT open a PR, merge, force-push, or amend others' commits without an explicit user instruction.</action>
         <goto step="8"/>
       </check>
     </substep>
